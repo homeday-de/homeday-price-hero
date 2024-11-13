@@ -1,7 +1,8 @@
 import psycopg
 import json
+from typing import List
 from psycopg import sql
-from src.models import DataPipelineConfig
+from src.models import DataPipelineConfig, GeocodingResponse, PriceResponse
 from src.db.schema import create_, insert_
 
 
@@ -58,15 +59,22 @@ class Database:
             cur.execute(create_['geo_cache'])
             self.conn.commit()
 
-    def get_cached_geoid(self, zip_code):
+    def get_cached_geoid(self, zip_codes: List[str]):
         """Retrieve cached geo_id for a given zip code."""
         with self.conn.cursor() as cur:
-            select_query = sql.SQL("SELECT geo_id FROM geo_cache WHERE zip_code = %s")
-            cur.execute(select_query, (zip_code,))
-            result = cur.fetchone()
-            return result[0] if result else None
+            select_query = sql.SQL(
+                """
+                SELECT geo_id FROM geo_cache 
+                WHERE zip_code IN (
+                {}
+                )
+                """
+            ).format(sql.SQL(', ').join(sql.Placeholder() for _ in zip_codes))
+            cur.execute(select_query, zip_codes)
+            results = cur.fetchall()
+        return [result[0] for result in results] if results else None
 
-    def cache_geoid(self, zip_code, geocoding_response):
+    def cache_geo_response(self, geocoding_response: GeocodingResponse):
         """Cache geocoding response data in the geo_cache table."""
         with self.conn.cursor() as cur:
             geocoding_data = (
@@ -76,10 +84,10 @@ class Database:
                 geocoding_response['match_name'],
                 geocoding_response['confidence_score']
             )
-            cur.execute(insert_['geo_cache'], (zip_code,)+geocoding_data)
+            cur.execute(insert_['geo_cache'], (geocoding_response['zip_code'],)+geocoding_data)
             self.conn.commit()
 
-    def store_data_in_db(self, price_response):
+    def store_price_in_db(self, price_response: PriceResponse):
         """Store price response data in the prices_all table."""
         with self.conn.cursor() as cur:
             price_data = (
