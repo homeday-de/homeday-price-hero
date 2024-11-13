@@ -11,12 +11,11 @@ class APIClient:
     rate_limit = 10  # requests per minute
     rate_limit_interval = 60 / rate_limit  # seconds between requests
 
-    def __init__(self, price_date, geoapi_key, priceapi_key):
-        self.price_date = price_date
+    def __init__(self, geoapi_key, priceapi_key):
         self.geo_api_key = geoapi_key
         self.price_api_key = priceapi_key
 
-    async def get_data_in_batch(self, base_url: str, idx_group: List[str], fetch_function: Callable) -> List:
+    async def get_data_in_batch(self, base_url: str, idx_group: List[str], fetch_function: Callable, **kwargs) -> List:
     # Ensure fetch_function is a method of the current instance
         if not callable(fetch_function) or not hasattr(self, fetch_function.__name__):
             raise ValueError("fetch_function must be a method of the current instance")
@@ -28,7 +27,7 @@ class APIClient:
 
         while batch_queue:
             batch = batch_queue.popleft()
-            coros = [fetch_function(base_url, unit) for unit in batch]
+            coros = [fetch_function(base_url, unit, **kwargs) for unit in batch]
             batch_results = await asyncio.gather(*coros)
             results.extend(batch_results)
             await asyncio.sleep(self.rate_limit_interval)
@@ -43,12 +42,12 @@ class APIClient:
                 res = await response.json()
                 # Select the first match from the responses because it has the lowest geographic granularity
                 data = res.get('items', {}).get('aviv', {})[0].get('match', {})
-                return GeocodingResponse(**data)
+                return GeocodingResponse(zipcode, **data)
 
-    async def fetch_price_data(self, base_url: str, geoid: str):
+    async def fetch_price_data(self, base_url: str, geoid: str, price_date: str):
         headers = {'X-Api-Key': f"{self.price_api_key}"}
         async with aiohttp.ClientSession() as session:
-            url = f"{base_url}/{geoid}?price_date={self.price_date}"
+            url = f"{base_url}/{geoid}?price_date={price_date}"
             async with session.get(url, headers=headers) as response:
                 res = await response.json()
                 data = res.get('items', {})[0]
