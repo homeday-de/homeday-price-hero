@@ -13,11 +13,14 @@ config.read('config/config.dev.ini')
 
 @pytest.fixture
 def api_client():
-    return APIClient(price_date='2023-10-01', geoapi_key=config.get('api', 'geo_api_key'), priceapi_key=config.get('api', 'price_api_key'))
+    return APIClient(
+        geoapi_key=config.get('api.dev', 'geo_api_key'), 
+        priceapi_key=config.get('api.dev', 'price_api_key')
+    )
 
 @pytest.mark.asyncio
 async def test_fetch_geocoding_data(api_client):
-    base_url = config.get('api', 'geo_coding_url')
+    base_url = config.get('api.dev', 'geo_coding_url')
     zipcode = "10315"
     
     # Mock the response data
@@ -32,24 +35,26 @@ async def test_fetch_geocoding_data(api_client):
         
         # Verify the result
         assert isinstance(result, GeocodingResponse)
+        assert result.zip_code == "10315"
         assert result.id == "NBH2DE75702"
         assert result.coordinates == {"lat": 52.50339854556861, "lng": 13.518376766536123}
         assert result.match_name == "Friedrichsfelde"
 
 @pytest.mark.asyncio
 async def test_fetch_price_data(api_client):
-    base_url = config.get('api', 'price_url')
+    base_url = config.get('api.dev', 'price_url')
     geoid = "NBH2DE75702"
+    price_date = "2023-10-01"
     
     # Mock the response data
     response_data = price_responses.get(geoid)
 
     with aioresponses() as m:
         # Mock the expected URL and response
-        m.get(f"{base_url}/{geoid}?price_date=2023-10-01", payload=response_data)
+        m.get(f"{base_url}/{geoid}?price_date={price_date}", payload=response_data)
 
         # Call the function
-        result = await api_client.fetch_price_data(base_url, geoid)
+        result = await api_client.fetch_price_data(base_url, geoid, price_date=price_date)
         
         # Verify the result
         assert isinstance(result, PriceResponse)
@@ -59,7 +64,7 @@ async def test_fetch_price_data(api_client):
 
 @pytest.mark.asyncio
 async def test_get_geo_data_in_batch(api_client):
-    base_url = config.get('api', 'geo_coding_url')
+    base_url = config.get('api.dev', 'geo_coding_url')
     idx_group = ["10315", "12589"]
 
     # Mock response data for each request in the batch
@@ -85,19 +90,20 @@ async def test_get_geo_data_in_batch(api_client):
 
 @pytest.mark.asyncio
 async def test_get_price_data_in_batch(api_client):
-    base_url = config.get('api', 'price_url')
+    base_url = config.get('api.dev', 'price_url')
     idx_group = ["NBH2DE75702", "NBH2DE75693"]
+    price_date = "2023-10-01"
 
     # Mock response data for each request in the batch
     response_data = price_responses
 
     with aioresponses() as m:
         # Mock each URL and response
-        m.get(f"{base_url}/{idx_group[0]}?price_date=2023-10-01", payload=response_data.get(idx_group[0]))
-        m.get(f"{base_url}/{idx_group[1]}?price_date=2023-10-01", payload=response_data.get(idx_group[1]))
+        m.get(f"{base_url}/{idx_group[0]}?price_date={price_date}", payload=response_data.get(idx_group[0]))
+        m.get(f"{base_url}/{idx_group[1]}?price_date={price_date}", payload=response_data.get(idx_group[1]))
 
         # Call get_data_in_batch with fetch_price_data as the fetch_function
-        results = await api_client.get_data_in_batch(base_url, idx_group, api_client.fetch_price_data)
+        results = await api_client.get_data_in_batch(base_url, idx_group, api_client.fetch_price_data, price_date=price_date)
         
         # Verify the result
         assert len(results) == 2

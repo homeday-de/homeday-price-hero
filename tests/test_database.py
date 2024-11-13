@@ -37,8 +37,8 @@ def test_create_tables(db_conn):
 
 # Test cache_geoid function
 def test_cache_geoid(db_conn):
-    zip_code = "67890"
     geocoding_response = {
+        "zip_code": "67890",
         "id": "geo456",
         "type_key": "NBH2",
         "coordinates": json.dumps({"lat": 52.503, "lng": 13.518}),
@@ -46,9 +46,9 @@ def test_cache_geoid(db_conn):
         "confidence_score": 1
     }
     db.conn = db_conn
-    db.cache_geoid(zip_code, geocoding_response)
+    db.cache_geo_response(geocoding_response)
     
-    cached_geo_id = db.get_cached_geoid(zip_code)
+    cached_geo_id = db.get_cached_geoid([geocoding_response['zip_code']])[0]
     assert cached_geo_id == geocoding_response["id"]
 
 # Test store_data_in_db function
@@ -62,7 +62,7 @@ def test_store_data_in_db(db_conn):
         "hybrid_price": json.dumps({"value": 4000})
     }
     db.conn = db_conn
-    db.store_data_in_db(price_response)
+    db.store_price_in_db(price_response)
 
     with db.conn.cursor() as cur:
         cur.execute("SELECT * FROM prices_all WHERE geo_id = 'geo789'")
