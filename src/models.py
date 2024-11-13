@@ -12,6 +12,7 @@ class DataPipelineConfig:
 
 @dataclass
 class GeocodingResponse:
+    zip_code: str
     id: str
     type_key: str  # NBH2 or NBH3
     coordinates: dict
