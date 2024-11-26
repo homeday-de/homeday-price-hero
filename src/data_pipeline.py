@@ -1,5 +1,4 @@
 import asyncio
-import configparser
 from typing import List
 from src.models import PriceResponse
 from src.db import Database
@@ -7,11 +6,9 @@ from src.api_client import APIClient
 
 
 class DataPipeline(Database):
-    config = configparser.ConfigParser()
-    config.read('config/config.dev.ini')
     
-    def __init__(self, test=False):
-        super().__init__(config=self.config, test=test)
+    def __init__(self, config, test=False):
+        super().__init__(config=config, test=test)
         self.GEOCODING_URL = None
         self.PRICE_URL = None
         self.api = None
