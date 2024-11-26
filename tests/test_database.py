@@ -1,6 +1,7 @@
 import pytest
 import json
 import configparser
+from src.models import GeocodingResponse, PriceResponse
 from src.db import Database
 
 
@@ -37,30 +38,37 @@ def test_create_tables(db_conn):
 
 # Test cache_geoid function
 def test_cache_geoid(db_conn):
-    geocoding_response = {
-        "zip_code": "67890",
-        "id": "geo456",
-        "type_key": "NBH2",
-        "coordinates": json.dumps({"lat": 52.503, "lng": 13.518}),
-        "match_name": "SampleName",
-        "confidence_score": 1
-    }
+    geocoding_response = GeocodingResponse(
+        zip_code = "67890",
+        id = "geo456",
+        type_key = "NBH2",
+        coordinates = json.dumps({"lat": 52.503, "lng": 13.518}),
+        bounding_box = {
+            "north": 52.54,
+            "south": 52.52,
+            "east": 13.39,
+            "west": 13.38
+        },
+        match_name = "SampleName",
+        confidence_score = 1,
+        parents=["Berlin", "Germany"]
+    )
     db.conn = db_conn
     db.cache_geo_response(geocoding_response)
     
-    cached_geo_id = db.get_cached_geoid([geocoding_response['zip_code']])[0]
-    assert cached_geo_id == geocoding_response["id"]
+    cached_geo_id = db.get_cached_geoid([geocoding_response.zip_code])[0]
+    assert cached_geo_id == geocoding_response.id
 
 # Test store_data_in_db function
 def test_store_data_in_db(db_conn):
-    price_response = {
-        "place_id": "geo789",
-        "price_date": "2023-10-01",
-        "transaction_type": "sell",
-        "house_price": json.dumps({"value": 5000}),
-        "apartment_price": json.dumps({"value": 3000}),
-        "hybrid_price": json.dumps({"value": 4000})
-    }
+    price_response = PriceResponse(
+        place_id = "geo789",
+        price_date = "2023-10-01",
+        transaction_type = "sell",
+        house_price = json.dumps({"value": 5000}),
+        apartment_price = json.dumps({"value": 3000}),
+        hybrid_price = json.dumps({"value": 4000})
+    )
     db.conn = db_conn
     db.store_price_in_db(price_response)
 
@@ -69,5 +77,5 @@ def test_store_data_in_db(db_conn):
         result = cur.fetchone()
     
     assert result is not None, "Data should be stored in the database"
-    assert result[1] == 'geo789', f"Expected 'geo789', but got {result[1]}"
-    assert result[2] == '2023-10-01', f"Expected '2023-10-01', but got {result[2]}"
+    assert result[0] == 'geo789', f"Expected 'geo789', but got {result[0]}"
+    assert result[1] == '2023-10-01', f"Expected '2023-10-01', but got {result[1]}"
