@@ -49,6 +49,8 @@ class APIClient:
         async with aiohttp.ClientSession() as session:
             url = f"{base_url}/{geoid}?price_date={price_date}"
             async with session.get(url, headers=headers) as response:
+                if response.status == 404:
+                    return
                 res = await response.json()
                 data = res.get('items', {})[0]
                 return PriceResponse(**data)
