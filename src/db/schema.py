@@ -1,12 +1,12 @@
 create_prices_all = """
     CREATE TABLE IF NOT EXISTS prices_all (
-        id SERIAL PRIMARY KEY,
         geo_id TEXT,
         price_date TEXT,
         transaction_type TEXT,
         house_price JSON,
         apartment_price JSON,
-        hybrid_price JSON
+        hybrid_price JSON,
+        PRIMARY KEY (geo_id, price_date)
     )
 """
 
@@ -32,6 +32,7 @@ insert_prices_all = """
     INSERT INTO prices_all (
         geo_id, price_date, transaction_type, house_price, apartment_price, hybrid_price
     ) VALUES (%s, %s, %s, %s, %s, %s)
+    ON CONFLICT (geo_id, price_date) DO NOTHING
 """
 
 
