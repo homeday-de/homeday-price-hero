@@ -38,22 +38,21 @@ class Database:
             print("Error creating database:", error)
 
     def connect_to_db(self):
-        if not self.conn:
-            self.create_database()
         try:
-            conn = psycopg.connect(
+            self.conn = psycopg.connect(
                 host=self.config.get(self.db_type, 'host'),
                 port=self.config.get(self.db_type, 'port'),
                 dbname=self.config.get(self.db_type, 'name'),
                 user=self.config.get(self.db_type, 'user'),
                 password=self.config.get(self.db_type, 'password')
             )
-            self.conn = conn
         except (Exception, psycopg.Error) as error:
             print("Error connecting to PostgreSQL:", error)
 
     def create_tables(self):
         """Create required tables in the database if they do not exist."""
+        if not self.conn:
+            self.connect_to_db()
         with self.conn.cursor() as cur:
             cur.execute(create_['prices_all'])
             cur.execute(create_['geo_cache'])
@@ -61,6 +60,8 @@ class Database:
 
     def get_cached_geoid(self, zip_codes: List[str]):
         """Retrieve cached geo_id for a given zip code."""
+        if not self.conn:
+            self.connect_to_db()
         with self.conn.cursor() as cur:
             select_query = sql.SQL(
                 """
@@ -76,27 +77,32 @@ class Database:
 
     def cache_geo_response(self, geocoding_response: GeocodingResponse):
         """Cache geocoding response data in the geo_cache table."""
+        if not self.conn:
+            self.connect_to_db()
         with self.conn.cursor() as cur:
             geocoding_data = (
-                geocoding_response['id'],
-                geocoding_response['type_key'],
-                json.dumps(geocoding_response['coordinates']),
-                geocoding_response['match_name'],
-                geocoding_response['confidence_score']
+                geocoding_response.id,
+                geocoding_response.type_key,
+                json.dumps(geocoding_response.coordinates),
+                geocoding_response.match_name,
+                geocoding_response.confidence_score
             )
-            cur.execute(insert_['geo_cache'], (geocoding_response['zip_code'],)+geocoding_data)
+            cur.execute(insert_['geo_cache'], (geocoding_response.zip_code,)+geocoding_data)
             self.conn.commit()
 
     def store_price_in_db(self, price_response: PriceResponse):
         """Store price response data in the prices_all table."""
+        if not self.conn:
+            self.connect_to_db()
         with self.conn.cursor() as cur:
-            price_data = (
-                price_response['place_id'],
-                price_response['price_date'],
-                price_response['transaction_type'],
-                json.dumps(price_response.get('house_price')),
-                json.dumps(price_response.get('apartment_price')),
-                json.dumps(price_response.get('hybrid_price'))
-            )
-            cur.execute(insert_['prices_all'], price_data)
-            self.conn.commit()
+            if price_response:
+                price_data = (
+                    price_response.place_id,
+                    price_response.price_date,
+                    price_response.transaction_type,
+                    json.dumps(price_response.house_price),
+                    json.dumps(price_response.apartment_price),
+                    json.dumps(price_response.hybrid_price)
+                )
+                cur.execute(insert_['prices_all'], price_data)
+                self.conn.commit()
