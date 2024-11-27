@@ -1,11 +1,13 @@
 import asyncio
+import datetime
 from typing import List
 from src.models import PriceResponse
 from src.db import Database
 from src.api_client import APIClient
+from src.helpers import S3Connector, PostgresToS3
 
 
-class DataPipeline(Database):
+class APItoDB(Database):
     
     def __init__(self, config, test=False):
         super().__init__(config=config, test=test)
@@ -30,7 +32,6 @@ class DataPipeline(Database):
         prices_responses = await self.fetch_price(zip_codes, price_date)
         for prices_response in prices_responses:
             self.store_price_in_db(prices_response)
-            
         self.close_db_connection()
 
     async def fetch_price(self, zip_codes: List[str], price_date: str) -> PriceResponse:
@@ -57,3 +58,17 @@ class DataPipeline(Database):
     def close_db_connection(self):
         if self.conn:
             self.conn.close()
+
+
+def db_to_s3(config, table_name):
+    # Example configuration and usage
+    bucket_name = config.get('aws', 's3_bucket')
+    quarter = datetime.date.today().strftime("%Y%m")  # e.g., "2024Q3"
+    s3_key = f"monthly_dumps/{table_name}_{quarter}.json"  # Desired S3 key
+
+    # Create instances
+    s3_connector = S3Connector(bucket_name)
+    pg_to_s3 = PostgresToS3(config, s3_connector, test=False)
+
+    # Dump table and upload to S3
+    pg_to_s3.dump_and_upload(table_name, s3_key)
