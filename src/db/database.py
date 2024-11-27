@@ -1,13 +1,13 @@
 import psycopg
 import json
-from typing import List
+from typing import List, Dict
 from psycopg import sql
-from src.models import DataPipelineConfig, GeocodingResponse, PriceResponse
+from src.models import GeocodingResponse, PriceResponse
 from src.db.schema import create_, insert_
 
 
 class Database:
-    def __init__(self, config: DataPipelineConfig, test=False):
+    def __init__(self, config: Dict, test=False):
         self.db_type = 'db.dev' if not test else 'db.test'
         self.conn = None
         self.config = config
