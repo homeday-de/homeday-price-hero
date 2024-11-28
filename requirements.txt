@@ -4,3 +4,4 @@ aiohttp==3.10.11
 pytest-asyncio==0.24.0
 aioresponses
 boto3==1.35.69
+dynaconf==3.2.6
