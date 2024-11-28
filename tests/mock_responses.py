@@ -30,6 +30,62 @@ geo_response_12589 = {
     }
 }
 
+geo_response_Ohne = {
+    "items": {
+        "aviv": [{
+            "match": {
+                "id": "AD08DE1992",
+                "type_key": "AD08",
+                "coordinates": {
+                    "lat": 52.273521665147335,
+                    "lng": 7.27936823510655
+                },
+                "bounding_box": {
+                    "ne": {
+                    "lat": 52.2638103,
+                    "lng": 7.218268
+                    },
+                    "sw": {
+                    "lat": 52.2900363,
+                    "lng": 7.3173127
+                    }
+                },
+                "match_name": "Ohne",
+                "confidence_score": 1,
+                "parents": []
+            }
+        }]
+    }
+}
+
+geo_response_Ködnitz = {
+    "items": {
+        "aviv": [{
+            "match": {
+            "id": "AD08DE7589",
+            "type_key": "AD08",
+            "coordinates": {
+                "lat": 50.099291599932535,
+                "lng": 11.510340529692305
+            },
+            "bounding_box": {
+                "ne": {
+                "lat": 50.0674009,
+                "lng": 11.4781884
+                },
+                "sw": {
+                "lat": 50.1339989,
+                "lng": 11.5444341
+                }
+            },
+            "match_name": "Ködnitz",
+            "confidence_score": 1,
+            "parents": []
+            }
+        }]
+    }
+}
+
 price_response_NBH2DE75702 = {
     "items": [{
         "place_id": "NBH2DE75702",
@@ -55,5 +111,5 @@ price_response_NBH2DE75693 = {
 }
 
 
-geo_responses = {'10315': geo_response_10315, '12589': geo_response_12589}
+geo_responses = {'10315': geo_response_10315, '12589': geo_response_12589, 'Ohne': geo_response_Ohne, 'Ködnitz': geo_response_Ködnitz}
 price_responses = {'NBH2DE75702': price_response_NBH2DE75702, 'NBH2DE75693': price_response_NBH2DE75693}

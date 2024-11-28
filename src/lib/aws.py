@@ -1,17 +1,18 @@
 import boto3
 import json
+from dynaconf import Dynaconf
 from typing import Dict
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 
 
 class S3Connector:
-    def __init__(self, config, profile_name: str = "default"):
+    def __init__(self, config: Dynaconf, profile_name: str = "default"):
         """
         Initialize the S3Connector with a bucket name and AWS profile.
         :param config: config file.
         :param profile_name: The AWS profile name to use (default: 'default').
         """
-        self.bucket_name = config.get('aws', 's3_bucket')
+        self.bucket_name = config.aws.s3_bucket
         self.session = boto3.Session(profile_name=profile_name)
         self.s3_client = self.session.client("s3")
 

@@ -3,9 +3,9 @@ from dataclasses import dataclass
 
 @dataclass
 class GeocodingResponse:
-    zip_code: str
+    geo_index: str # postal_code or city
     id: str
-    type_key: str  # NBH2 or NBH3
+    type_key: str  # NBH2 or AD08
     coordinates: dict
     bounding_box: dict
     match_name: str

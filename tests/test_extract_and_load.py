@@ -4,21 +4,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from src.lib.aws import S3Connector
 from src.pipelines.extract_and_load import APIToPostgres, PostgresToS3
 from src.models import PriceResponse
+from config import settings
 
 
 class TestFixtures:
     """Class to provide shared fixtures."""
-    config = {
-        'api.dev': {
-            'geo_coding_url': 'http://geo.dev/api',
-            'price_url': 'http://price.dev/api',
-            'geo_api_key': 'fake_geo_key',
-            'price_api_key': 'fake_price_key',
-        },
-        'aws': {
-            's3_bucket': 'test_bucket'
-        }
-    }
 
     @pytest.fixture
     def s3_connector(self):
@@ -26,7 +16,7 @@ class TestFixtures:
         with patch("src.lib.aws.boto3.Session") as mock_session:
             mock_client = MagicMock()
             mock_session.return_value.client.return_value = mock_client
-            connector = S3Connector(config=self.config, profile_name="default")
+            connector = S3Connector(config=settings, profile_name="default")
             yield connector
 
     @pytest.fixture
@@ -39,14 +29,14 @@ class TestFixtures:
             mock_cursor = MagicMock()
             mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
             mock_connect_to_db.return_value = mock_conn
-            pg_to_s3 = PostgresToS3(config=self.config, s3_connector=s3_connector, test=True)
+            pg_to_s3 = PostgresToS3(config=settings, s3_connector=s3_connector, test=True)
             pg_to_s3.conn = mock_conn
             yield pg_to_s3
 
     @pytest.fixture
     def mock_api_to_postgres(self):
         """Fixture to provide a mocked instance of APIToPostgres."""
-        return APIToPostgres(self.config, test=True)
+        return APIToPostgres(settings, test=True)
 
 
 class TestPostgresToS3(TestFixtures):
@@ -56,7 +46,7 @@ class TestPostgresToS3(TestFixtures):
         """Test the upload_json_data method of S3Connector."""
         json_data = {"key": "value"}
         s3_key = "test_key.json"
-        bucket_name = self.config.get('aws', 's3_bucket')
+        bucket_name = settings.aws.s3_bucket
 
         s3_connector.upload_json_data(json_data, s3_key)
         s3_connector.s3_client.put_object.assert_called_once_with(
