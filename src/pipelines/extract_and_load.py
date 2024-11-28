@@ -16,45 +16,49 @@ class APIToPostgres(Database):
         self.GEOCODING_URL = None
         self.PRICE_URL = None
         self.api = None
+        self.api_config = config.api.dev if test else config.api.preview
 
-    def api_client(self, dev_env=True):
-        api_conf = self.config.api.dev if dev_env else self.config.api.preview
-        self.GEOCODING_URL = api_conf.geo_coding_url
-        self.PRICE_URL = api_conf.price_url
+    def api_client(self):
+        self.GEOCODING_URL = self.api_config.geo_coding_url
+        self.PRICE_URL = self.api_config.price_url
         return APIClient(
-            geoapi_key=api_conf.geo_api_key,
-            priceapi_key=api_conf.price_api_key
+            geoapi_key=self.api_config.geo_api_key,
+            priceapi_key=self.api_config.price_api_key
         )
 
-    async def run(self, zip_codes: List[str], price_date: str, dev_env=True):
+    async def run(self, geo_indices: Dict, price_date: str):
         if not self.api:
-            self.api = self.api_client(dev_env=dev_env)
+            self.api = self.api_client()
         self.create_database()
         self.create_tables()
-        prices_responses = await self.fetch_price(zip_codes, price_date)
+        prices_responses = await self.fetch_price(geo_indices, price_date)
         for prices_response in prices_responses:
             self.store_price_in_db(prices_response)
         self.close_db_connection()
 
-    async def fetch_price(self, zip_codes: List[str], price_date: str) -> PriceResponse:
-        cached_geoid = await self.ensure_geoid_cache(zip_codes)
+    async def fetch_price(self, geo_indices: Dict, price_date: str) -> PriceResponse:
+        cached_geoid = await self.ensure_geoid_cache(geo_indices)
         return await self.api.get_data_in_batch(
             self.PRICE_URL, cached_geoid, self.api.fetch_price_data, price_date=price_date
         )
     
-    async def ensure_geoid_cache(self, zip_codes: List[str]) -> List[str]:
+    async def ensure_geoid_cache(self, geo_indices: Dict) -> List[str]:
         """Retrieve or fetch and cache geo_id for a given list of zip codes."""
-        cached_geoid = self.get_cached_geoid(zip_codes)
+        zip_and_city = geo_indices['zip_codes'] + geo_indices['cities']
+        cached_geoid = self.get_cached_geoid(zip_and_city)
         # Fetch and cache if not found
-        if not cached_geoid or len(cached_geoid) != len(zip_codes):
-            await self.fetch_geo(zip_codes)
-            cached_geoid = self.get_cached_geoid(zip_codes)
+        if not cached_geoid or len(cached_geoid) != len(zip_and_city):
+            await self.fetch_geo(geo_indices)
+            cached_geoid = self.get_cached_geoid(zip_and_city)
         
         return cached_geoid
 
-    async def fetch_geo(self, zip_codes: List[str]):
-        geocoding_responses = await self.api.get_data_in_batch(self.GEOCODING_URL, zip_codes, self.api.fetch_geocoding_data)
-        for geocoding_response in geocoding_responses:
+    async def fetch_geo(self, geo_indices: Dict):
+        geocoding_responses_zip = await self.api.get_data_in_batch(self.GEOCODING_URL, geo_indices['zip_codes'], self.api.fetch_geocoding_data_by_zipcode)
+        for geocoding_response in geocoding_responses_zip:
+            self.cache_geo_response(geocoding_response)
+        geocoding_responses_city = await self.api.get_data_in_batch(self.GEOCODING_URL, geo_indices['cities'], self.api.fetch_geocoding_data_by_name)
+        for geocoding_response in geocoding_responses_city:
             self.cache_geo_response(geocoding_response)
 
     def close_db_connection(self):

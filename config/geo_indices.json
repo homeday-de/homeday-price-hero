@@ -19250,5 +19250,47 @@
             "Kirchentellinsfurt",
             "Langenthal"
         ]
+    },
+    "test_geo_indices": {
+        "zip_codes": [
+            "01067",
+            "10115",
+            "20255",
+            "30419",
+            "45481",
+            "50354",
+            "60320",
+            "71394",
+            "83134",
+            "93133"
+        ],
+        "cities": [
+            "Aachen",
+            "Baar (Schwaben)",
+            "Callenberg",
+            "Dachsbach",
+            "Eberhardzell",
+            "Forchheim",
+            "Gersfeld (Rhön)",
+            "Haale",
+            "Ipsheim",
+            "Jacobsdorf",
+            "Kaiserslautern",
+            "Landau in der Pfalz",
+            "Manhagen",
+            "Neckargerach",
+            "Oberhausen",
+            "Patzig",
+            "Quedlinburg",
+            "Radeburg",
+            "Saldenburg",
+            "Tarmstedt",
+            "Ummern",
+            "Vielank",
+            "Waiblingen",
+            "Xanten",
+            "Zeil a. Main",
+            "Übersee"
+        ]
     }
 }
