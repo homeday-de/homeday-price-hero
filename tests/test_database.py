@@ -37,7 +37,7 @@ def test_create_tables(db_conn):
 # Test cache_geoid function
 def test_cache_geoid(db_conn):
     geocoding_response = GeocodingResponse(
-        zip_code = "67890",
+        geo_index = "67890",
         id = "geo456",
         type_key = "NBH2",
         coordinates = json.dumps({"lat": 52.503, "lng": 13.518}),
@@ -54,7 +54,7 @@ def test_cache_geoid(db_conn):
     db.conn = db_conn
     db.cache_geo_response(geocoding_response)
     
-    cached_geo_id = db.get_cached_geoid([geocoding_response.zip_code])[0]
+    cached_geo_id = db.get_cached_geoid([geocoding_response.geo_index])[0]
     assert cached_geo_id == geocoding_response.id
 
 # Test store_data_in_db function
@@ -71,7 +71,7 @@ def test_store_data_in_db(db_conn):
     db.store_price_in_db(price_response)
 
     with db.conn.cursor() as cur:
-        cur.execute("SELECT * FROM prices_all WHERE geo_id = 'geo789'")
+        cur.execute("SELECT * FROM prices_all WHERE aviv_geo_id = 'geo789'")
         result = cur.fetchone()
     
     assert result is not None, "Data should be stored in the database"

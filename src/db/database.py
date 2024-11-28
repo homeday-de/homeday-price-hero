@@ -48,6 +48,8 @@ class Database:
             )
         except (Exception, psycopg.Error) as error:
             print("Error connecting to PostgreSQL:", error)
+            if f'FATAL:  database "{self.db_config.name}" does not exist' in str(error):
+                self.create_database()
 
     def create_tables(self):
         """Create required tables in the database if they do not exist."""
@@ -58,20 +60,20 @@ class Database:
             cur.execute(create_['geo_cache'])
             self.conn.commit()
 
-    def get_cached_geoid(self, zip_codes: List[str]):
+    def get_cached_geoid(self, geo_index: List[str]):
         """Retrieve cached geo_id for a given zip code."""
         if not self.conn:
             self.connect_to_db()
         with self.conn.cursor() as cur:
             select_query = sql.SQL(
                 """
-                SELECT geo_id FROM geo_cache 
-                WHERE zip_code IN (
+                SELECT aviv_geo_id FROM geo_cache 
+                WHERE geo_index IN (
                 {}
                 )
                 """
-            ).format(sql.SQL(', ').join(sql.Placeholder() for _ in zip_codes))
-            cur.execute(select_query, zip_codes)
+            ).format(sql.SQL(', ').join(sql.Placeholder() for _ in geo_index))
+            cur.execute(select_query, geo_index)
             results = cur.fetchall()
         return [result[0] for result in results] if results else None
 
@@ -87,7 +89,7 @@ class Database:
                 geocoding_response.match_name,
                 geocoding_response.confidence_score
             )
-            cur.execute(insert_['geo_cache'], (geocoding_response.zip_code,)+geocoding_data)
+            cur.execute(insert_['geo_cache'], (geocoding_response.geo_index,)+geocoding_data)
             self.conn.commit()
 
     def store_price_in_db(self, price_response: PriceResponse):
