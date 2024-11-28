@@ -3,7 +3,7 @@ from dynaconf import Dynaconf
 
 settings = Dynaconf(
     # envvar_prefix="DYNACONF",
-    settings_files=['.secrets.json', 'geo_index.json'],
+    settings_files=['.secrets.json', 'geo_indices.json'],
 )
 
 # `envvar_prefix` = export envvars with `export DYNACONF_FOO=bar`.
