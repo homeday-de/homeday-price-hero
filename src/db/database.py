@@ -2,49 +2,49 @@ import psycopg
 import json
 from typing import List
 from psycopg import sql
+from dynaconf import Dynaconf
 from src.models import GeocodingResponse, PriceResponse
 from src.db.schema import create_, insert_
 
 
 class Database:
-    def __init__(self, config, test=False):
-        self.db_type = 'db.dev' if not test else 'db.test'
+    def __init__(self, config: Dynaconf, test=False):
         self.conn = None
-        self.config = config
+        self.db_config = config.db.dev if not test else config.db.test
         
     def create_database(self):
         try:
             # Connect to the PostgreSQL server
             with psycopg.connect(
-                host=self.config.get(self.db_type, 'host'),
-                port=self.config.get(self.db_type, 'port'),
+                host=self.db_config.host,
+                port=self.db_config.port,
                 dbname="postgres",
-                user=self.config.get(self.db_type, 'user'),
-                password=self.config.get(self.db_type, 'password')
+                user=self.db_config.user,
+                password=self.db_config.password
             ) as conn:
                 conn.autocommit = True  # Enable autocommit for DDL commands
                 with conn.cursor() as cur:
                     # Check if the database exists
-                    cur.execute("SELECT 1 FROM pg_database WHERE datname = %s;", (self.config.get(self.db_type, 'name'),))
+                    cur.execute("SELECT 1 FROM pg_database WHERE datname = %s;", (self.db_config.name,))
                     exists = cur.fetchone()
                     
                     # Create the database if it does not exist
                     if not exists:
-                        cur.execute(f"CREATE DATABASE {self.config.get(self.db_type, 'name')};")
-                        print(f"Database '{self.config.get(self.db_type, 'name')}' created successfully.")
+                        cur.execute(f"CREATE DATABASE {self.db_config.name};")
+                        print(f"Database '{self.db_config.name}' created successfully.")
                     else:
-                        print(f"Database '{self.config.get(self.db_type, 'name')}' already exists.")
+                        print(f"Database '{self.db_config.name}' already exists.")
         except Exception as error:
             print("Error creating database:", error)
 
     def connect_to_db(self):
         try:
             self.conn = psycopg.connect(
-                host=self.config.get(self.db_type, 'host'),
-                port=self.config.get(self.db_type, 'port'),
-                dbname=self.config.get(self.db_type, 'name'),
-                user=self.config.get(self.db_type, 'user'),
-                password=self.config.get(self.db_type, 'password')
+                host=self.db_config.host,
+                port=self.db_config.port,
+                dbname=self.db_config.name,
+                user=self.db_config.user,
+                password=self.db_config.password
             )
         except (Exception, psycopg.Error) as error:
             print("Error connecting to PostgreSQL:", error)
