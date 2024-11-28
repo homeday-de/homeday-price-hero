@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-import configparser
+from config import settings
 from typing import List
 from aioresponses import aioresponses
 from src.api_client import APIClient
@@ -8,19 +8,16 @@ from src.models import GeocodingResponse, PriceResponse
 from .mock_responses import geo_responses, price_responses
 
 
-config = configparser.ConfigParser()
-config.read('config/config.dev.ini')
-
 @pytest.fixture
 def api_client():
     return APIClient(
-        geoapi_key=config.get('api.dev', 'geo_api_key'), 
-        priceapi_key=config.get('api.dev', 'price_api_key')
+        geoapi_key=settings.api.dev.geo_api_key, 
+        priceapi_key=settings.api.dev.price_api_key
     )
 
 @pytest.mark.asyncio
 async def test_fetch_geocoding_data(api_client):
-    base_url = config.get('api.dev', 'geo_coding_url')
+    base_url = settings.api.dev.geo_coding_url
     zipcode = "10315"
     
     # Mock the response data
@@ -42,7 +39,7 @@ async def test_fetch_geocoding_data(api_client):
 
 @pytest.mark.asyncio
 async def test_fetch_price_data(api_client):
-    base_url = config.get('api.dev', 'price_url')
+    base_url = settings.api.dev.price_url
     geoid = "NBH2DE75702"
     price_date = "2023-10-01"
     
@@ -64,7 +61,7 @@ async def test_fetch_price_data(api_client):
 
 @pytest.mark.asyncio
 async def test_get_geo_data_in_batch(api_client):
-    base_url = config.get('api.dev', 'geo_coding_url')
+    base_url = settings.api.dev.geo_coding_url
     idx_group = ["10315", "12589"]
 
     # Mock response data for each request in the batch
@@ -90,7 +87,7 @@ async def test_get_geo_data_in_batch(api_client):
 
 @pytest.mark.asyncio
 async def test_get_price_data_in_batch(api_client):
-    base_url = config.get('api.dev', 'price_url')
+    base_url = settings.api.dev.price_url
     idx_group = ["NBH2DE75702", "NBH2DE75693"]
     price_date = "2023-10-01"
 

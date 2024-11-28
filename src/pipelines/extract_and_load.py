@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import json
 from typing import List, Dict
+from dynaconf import Dynaconf
 from src.models import PriceResponse
 from src.db import Database
 from src.api_client import APIClient
@@ -10,19 +11,19 @@ from src.lib.aws import S3Connector
 
 class APIToPostgres(Database):
     
-    def __init__(self, config, test=False):
+    def __init__(self, config: Dynaconf, test=False):
         super().__init__(config=config, test=test)
         self.GEOCODING_URL = None
         self.PRICE_URL = None
         self.api = None
 
     def api_client(self, dev_env=True):
-        api_conf = 'api.dev' if dev_env else 'api.preview'
-        self.GEOCODING_URL = self.config.get(api_conf, 'geo_coding_url')
-        self.PRICE_URL = self.config.get(api_conf, 'price_url')
+        api_conf = self.config.api.dev if dev_env else self.config.api.preview
+        self.GEOCODING_URL = api_conf.geo_coding_url
+        self.PRICE_URL = api_conf.price_url
         return APIClient(
-            geoapi_key=self.config.get(api_conf, 'geo_api_key'),
-            priceapi_key=self.config.get(api_conf, 'price_api_key')
+            geoapi_key=api_conf.geo_api_key,
+            priceapi_key=api_conf.price_api_key
         )
 
     async def run(self, zip_codes: List[str], price_date: str, dev_env=True):
@@ -62,7 +63,7 @@ class APIToPostgres(Database):
 
 
 class PostgresToS3(Database):
-    def __init__(self, config, s3_connector: S3Connector, test: bool):
+    def __init__(self, config: Dynaconf, s3_connector: S3Connector, test: bool):
         """
         Initialize the PostgresToS3 class.
         :param config: Database connection parameters.
@@ -73,7 +74,6 @@ class PostgresToS3(Database):
 
     def run(self, table_name, transformed=False):
         # Example configuration and usage
-        bucket_name = self.config.get('aws', 's3_bucket')
         quarter = datetime.date.today().strftime("%Y%m")  # e.g., "2024Q3"
         subfolder = "source_dump" if not transformed else "transformed"
         s3_key = f"{subfolder}/{table_name}_{quarter}.json"  # Desired S3 key

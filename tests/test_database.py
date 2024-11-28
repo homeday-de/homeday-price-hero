@@ -1,13 +1,11 @@
 import pytest
 import json
-import configparser
+from config import settings
 from src.models import GeocodingResponse, PriceResponse
 from src.db import Database
 
 
-config = configparser.ConfigParser()
-config.read('config/config.dev.ini')
-db = Database(config=config, test=True)
+db = Database(config=settings, test=True)
 
 
 # Fixture for database connection setup and teardown
