@@ -48,6 +48,9 @@ class Database:
             )
         except (Exception, psycopg.Error) as error:
             print("Error connecting to PostgreSQL:", error)
+            dbname = self.config.get(self.db_type, 'name')
+            if f'FATAL:  database "{dbname}" does not exist' in str(error):
+                self.create_database()
 
     def create_tables(self):
         """Create required tables in the database if they do not exist."""
@@ -56,6 +59,9 @@ class Database:
         with self.conn.cursor() as cur:
             cur.execute(create_['prices_all'])
             cur.execute(create_['geo_cache'])
+            cur.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
+            for table in create_['prices_mapped']:
+                cur.execute(table)
             self.conn.commit()
 
     def get_cached_geoid(self, zip_codes: List[str]):

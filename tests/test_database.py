@@ -36,6 +36,15 @@ def test_create_tables(db_conn):
         cur.execute("SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'geo_cache');")
         assert cur.fetchone()[0] is True
 
+        cur.execute("SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'report_batches');")
+        assert cur.fetchone()[0] is True
+
+        cur.execute("SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'report_headers');")
+        assert cur.fetchone()[0] is True
+
+        cur.execute("SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'location_prices');")
+        assert cur.fetchone()[0] is True
+
 # Test cache_geoid function
 def test_cache_geoid(db_conn):
     geocoding_response = GeocodingResponse(
