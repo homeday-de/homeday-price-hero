@@ -57,7 +57,8 @@ class APIToPostgres(Database):
         geocoding_responses_zip = await self.api.get_data_in_batch(self.GEOCODING_URL, geo_indices['zip_codes'], self.api.fetch_geocoding_data_by_zipcode)
         for geocoding_response in geocoding_responses_zip:
             self.cache_geo_response(geocoding_response)
-        geocoding_responses_city = await self.api.get_data_in_batch(self.GEOCODING_URL, geo_indices['cities'], self.api.fetch_geocoding_data_by_name)
+        cities_name = [geo_indices['cities'][i]['name'] for i, _ in enumerate(geo_indices['cities'])]
+        geocoding_responses_city = await self.api.get_data_in_batch(self.GEOCODING_URL, cities_name, self.api.fetch_geocoding_data_by_name)
         for geocoding_response in geocoding_responses_city:
             self.cache_geo_response(geocoding_response)
 

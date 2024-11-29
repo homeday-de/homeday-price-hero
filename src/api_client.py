@@ -42,7 +42,7 @@ class APIClient:
                 res = await response.json()
                 # Select the first match from the responses because it has the lowest geographic granularity
                 data = res.get('items', {}).get('aviv', {})[0].get('match', {})
-                return GeocodingResponse(zipcode, **data)
+                return GeocodingResponse(zipcode, 'no_hd_geo_id_applicable', **data)
     
     async def fetch_geocoding_data_by_name(self, base_url: str, name: str) -> GeocodingResponse:
         headers = {'X-Api-Key': f"{self.geo_api_key}"}
@@ -52,7 +52,8 @@ class APIClient:
                 res = await response.json()
                 # Select the first match from the responses because it has the lowest geographic granularity
                 data = res.get('items', {}).get('aviv', {})[0].get('match', {})
-                return GeocodingResponse(name, **data)
+                # add placeholder for hd_geo_id
+                return GeocodingResponse(name, None, **data)
 
     async def fetch_price_data(self, base_url: str, geoid: str, price_date: str) -> PriceResponse:
         headers = {'X-Api-Key': f"{self.price_api_key}"}

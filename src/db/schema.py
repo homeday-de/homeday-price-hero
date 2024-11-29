@@ -12,20 +12,22 @@ create_prices_all = """
 
 create_geo_cache = """
     CREATE TABLE IF NOT EXISTS geo_cache (
-        geo_index TEXT PRIMARY KEY,
+        geo_index TEXT,
+        hd_geo_id TEXT,
         aviv_geo_id TEXT,
         type_key TEXT,
         coordinates JSON,
         match_name TEXT,
         confidence_score INT
+        PRIMARY KEY (geo_index, hd_geo_id)
     )
 """
 
 insert_geo_cache = """
     INSERT INTO geo_cache (
-        geo_index, aviv_geo_id, type_key, coordinates, match_name, confidence_score
-    ) VALUES (%s, %s, %s, %s, %s, %s)
-    ON CONFLICT (geo_index) DO NOTHING
+        geo_index, hd_geo_id, aviv_geo_id, type_key, coordinates, match_name, confidence_score
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (geo_index, hd_geo_id) DO NOTHING
 """
 
 insert_prices_all = """
