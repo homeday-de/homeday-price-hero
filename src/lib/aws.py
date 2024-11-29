@@ -1,8 +1,10 @@
 import boto3
 import json
+import base64
+import os
 from dynaconf import Dynaconf
 from typing import Dict
-from botocore.exceptions import NoCredentialsError, PartialCredentialsError
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
 
 
 class S3Connector:
@@ -59,3 +61,60 @@ class S3Connector:
             print(f"Error: AWS credentials issue - {e}")
         except Exception as e:
             print(f"Unexpected error: {e}")
+
+
+class SecretManager:
+
+    region_name = "eu-central-1"
+    secret_path = "config/.secrets.json"
+
+    def get_secret(self, secret_name):
+
+        # Create a Secrets Manager client
+        session = boto3.session.Session()
+        client = session.client(service_name="secretsmanager", region_name=self.region_name)
+
+        # In this sample we only handle the specific exceptions for the 'GetSecretValue' API.
+        # See https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+        # We rethrow the exception by default.
+
+        try:
+            get_secret_value_response = client.get_secret_value(SecretId=secret_name)
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "DecryptionFailureException":
+                # Secrets Manager can't decrypt the protected secret text using the provided KMS key.
+                # Deal with the exception here, and/or rethrow at your discretion.
+                raise e
+            elif e.response["Error"]["Code"] == "InternalServiceErrorException":
+                # An error occurred on the server side.
+                # Deal with the exception here, and/or rethrow at your discretion.
+                raise e
+            elif e.response["Error"]["Code"] == "InvalidParameterException":
+                # You provided an invalid value for a parameter.
+                # Deal with the exception here, and/or rethrow at your discretion.
+                raise e
+            elif e.response["Error"]["Code"] == "InvalidRequestException":
+                # You provided a parameter value that is not valid for the current state of the resource.
+                # Deal with the exception here, and/or rethrow at your discretion.
+                raise e
+            elif e.response["Error"]["Code"] == "ResourceNotFoundException":
+                # We can't find the resource that you asked for.
+                # Deal with the exception here, and/or rethrow at your discretion.
+                raise e
+        else:
+            # Decrypts secret using the associated KMS CMK.
+            # Depending on whether the secret is a string or binary, one of these fields will be populated.
+            if "SecretString" in get_secret_value_response:
+                return get_secret_value_response["SecretString"]
+            else:
+                return base64.b64decode(get_secret_value_response["SecretBinary"])
+
+
+    def create_config_file(self, secret_name: str) -> Dict:
+        secret_path = os.path.abspath(f"{self.secret_path}")
+        if not os.path.exists(secret_path):
+            secret_value = self.get_secret(f"homeday-prices-lake/{secret_name}")
+            secret = json.loads(secret_value)
+        
+            with open(self.secret_path, "w") as f:
+                json.dump(secret, f, indent=4)
