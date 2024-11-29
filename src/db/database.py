@@ -61,6 +61,8 @@ class Database:
             cur.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
             for table in create_['prices_mapped']:
                 cur.execute(table)
+            # To avoid manual work in prices db, reset the id starting from 30 to avoid index conflict
+            cur.execute('ALTER SEQUENCE report_batches_id_seq RESTART WITH 30;')
             self.conn.commit()
 
     def get_cached_geoid(self, geo_index: List[str]):
