@@ -44,21 +44,22 @@ class APIToPostgres(Database):
     
     async def ensure_geoid_cache(self, geo_indices: Dict) -> List[str]:
         """Retrieve or fetch and cache geo_id for a given list of zip codes."""
-        zip_and_city = geo_indices['zip_codes'] + geo_indices['cities']
-        cached_geoid = self.get_cached_geoid(zip_and_city)
+        zipcode_in_list = [geo_indices['zip_codes'][i]['name'] for i, _ in enumerate(geo_indices['zip_codes'])]
+        cityname_in_list = [geo_indices['cities'][i]['name'] for i, _ in enumerate(geo_indices['cities'])]
+        all_index = zipcode_in_list + cityname_in_list
+        cached_geoid = self.get_cached_geoid(all_index)
         # Fetch and cache if not found
-        if not cached_geoid or len(cached_geoid) != len(zip_and_city):
+        if not cached_geoid or len(cached_geoid) != len(all_index):
             await self.fetch_geo(geo_indices)
-            cached_geoid = self.get_cached_geoid(zip_and_city)
+            cached_geoid = self.get_cached_geoid(all_index)
         
         return cached_geoid
 
     async def fetch_geo(self, geo_indices: Dict):
-        geocoding_responses_zip = await self.api.get_data_in_batch(self.GEOCODING_URL, geo_indices['zip_codes'], self.api.fetch_geocoding_data_by_zipcode)
+        geocoding_responses_zip = await self.api.get_data_in_batch(self.GEOCODING_URL, geo_indices['zip_codes'], self.api.fetch_geocoding_data)
         for geocoding_response in geocoding_responses_zip:
             self.cache_geo_response(geocoding_response)
-        cities_name = [geo_indices['cities'][i]['name'] for i, _ in enumerate(geo_indices['cities'])]
-        geocoding_responses_city = await self.api.get_data_in_batch(self.GEOCODING_URL, cities_name, self.api.fetch_geocoding_data_by_name)
+        geocoding_responses_city = await self.api.get_data_in_batch(self.GEOCODING_URL, geo_indices['cities'], self.api.fetch_geocoding_data)
         for geocoding_response in geocoding_responses_city:
             self.cache_geo_response(geocoding_response)
 
