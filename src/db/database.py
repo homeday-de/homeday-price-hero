@@ -88,13 +88,15 @@ class Database:
             self.connect_to_db()
         with self.conn.cursor() as cur:
             geocoding_data = (
+                geocoding_response.geo_index,
+                geocoding_response.hd_geo_id,
                 geocoding_response.id,
                 geocoding_response.type_key,
                 json.dumps(geocoding_response.coordinates),
                 geocoding_response.match_name,
                 geocoding_response.confidence_score
             )
-            cur.execute(insert_['geo_cache'], (geocoding_response.geo_index,)+geocoding_data)
+            cur.execute(insert_['geo_cache'], geocoding_data)
             self.conn.commit()
 
     def store_price_in_db(self, price_response: PriceResponse):
