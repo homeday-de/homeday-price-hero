@@ -18,7 +18,7 @@ create_geo_cache = """
         type_key TEXT,
         coordinates JSON,
         match_name TEXT,
-        confidence_score INT
+        confidence_score INT,
         PRIMARY KEY (geo_index, hd_geo_id)
     )
 """
