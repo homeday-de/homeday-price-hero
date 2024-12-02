@@ -49,9 +49,13 @@ class APIClient:
         headers = {'X-Api-Key': f"{self.price_api_key}"}
         async with aiohttp.ClientSession() as session:
             url = f"{base_url}/{geoid}?price_date={price_date}"
+            no_entity_placeholder = {
+                "aviv_geo_id": geoid, "price_date": price_date, "transaction_type": "TRANSACTION_TYPE.SELL",
+                "house_price": {}, "apartment_price": {}, "hybrid_price": {}
+            }
             async with session.get(url, headers=headers) as response:
                 if response.status == 404:
-                    return
+                    return PriceResponse(**no_entity_placeholder)
                 res = await response.json()
                 data = res.get('items', {})[0]
                 return PriceResponse(**data)

@@ -47,6 +47,7 @@ def test_create_tables(db_conn):
 def test_cache_geoid(db_conn):
     geocoding_response = GeocodingResponse(
         geo_index = "67890",
+        hd_geo_id="no_hd_geo_id_applicable",
         id = "geo456",
         type_key = "NBH2",
         coordinates = json.dumps({"lat": 52.503, "lng": 13.518}),
