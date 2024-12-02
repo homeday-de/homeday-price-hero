@@ -1,5 +1,6 @@
 import psycopg
 import json
+import logging
 from typing import List
 from psycopg import sql
 from dynaconf import Dynaconf
@@ -9,6 +10,7 @@ from src.db.schema import create_, insert_
 
 class Database:
     def __init__(self, config: Dynaconf, test=False):
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.conn = None
         self.db_config = config.db.dev if not test else config.db.test
         
@@ -31,11 +33,11 @@ class Database:
                     # Create the database if it does not exist
                     if not exists:
                         cur.execute(f"CREATE DATABASE {self.db_config.name};")
-                        print(f"Database '{self.db_config.name}' created successfully.")
+                        self.logger.info(f"Database '{self.db_config.name}' created successfully.")
                     else:
-                        print(f"Database '{self.db_config.name}' already exists.")
+                        self.logger.info(f"Database '{self.db_config.name}' already exists.")
         except Exception as error:
-            print("Error creating database:", error)
+            self.logger.error("Error creating database:", error)
 
     def connect_to_db(self):
         try:
@@ -47,7 +49,7 @@ class Database:
                 password=self.db_config.password
             )
         except (Exception, psycopg.Error) as error:
-            print("Error connecting to PostgreSQL:", error)
+            self.logger.error("Error connecting to PostgreSQL:", error)
             if f'FATAL:  database "{self.db_config.name}" does not exist' in str(error):
                 self.create_database()
 
@@ -115,3 +117,7 @@ class Database:
                 )
                 cur.execute(insert_['prices_all'], price_data)
                 self.conn.commit()
+
+    def close_db_connection(self):
+        if self.conn:
+            self.conn.close()
