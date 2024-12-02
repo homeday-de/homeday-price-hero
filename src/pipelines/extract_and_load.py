@@ -10,9 +10,6 @@ from src.api_client import APIClient
 from src.lib.aws import S3Connector
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-
-
 class APIToPostgres(Database):
     
     def __init__(self, config: Dynaconf, test=False):
@@ -84,15 +81,19 @@ class PostgresToS3(Database):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.s3_connector = s3_connector
 
-    def run(self, table_name, transformed=False):
+    def run(self, table_name, transformed=False, local=False):
         # Example configuration and usage
         quarter = datetime.date.today().strftime("%Y%m")  # e.g., "2024Q3"
         subfolder = "source_dump" if not transformed else "transformed"
         s3_key = f"{subfolder}/{table_name}_{quarter}.json"  # Desired S3 key
 
-        # Dump table and upload to S3
-        self.dump_and_upload(table_name, s3_key)
-    
+        if not local:
+            # Dump table and upload to S3
+            self.dump_and_upload(table_name, s3_key)
+        else:
+            data = self.dump_table_to_json(table_name)
+            self.save_json_to_file(data, file_path=f"data/{table_name}_{quarter}.json")
+
     def dump_table_to_json(self, table_name: str) -> List[Dict]:
         """
         Dump the contents of a PostgreSQL table into a JSON object.
