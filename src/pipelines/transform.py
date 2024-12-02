@@ -8,7 +8,9 @@ class AVIVRawToHDPrices(Database):
     SQL_REPORT_BATCHES = """
         INSERT INTO report_batches (name, started_at, completed_at, created_at, updated_at)
         SELECT
-            CONCAT(EXTRACT(YEAR FROM price_date::date)::TEXT, 'Q', EXTRACT(QUARTER FROM price_date::date)::TEXT) AS name,
+            CONCAT(
+                EXTRACT(YEAR FROM price_date::date)::TEXT, 'Q', EXTRACT(QUARTER FROM price_date::date)::TEXT
+            ) AS name,
             CURRENT_TIMESTAMP AS started_at,
             CURRENT_TIMESTAMP AS completed_at,
             CURRENT_TIMESTAMP AS created_at,
@@ -24,7 +26,9 @@ class AVIVRawToHDPrices(Database):
             -- Extract distinct price_date and map to year-quarter format
             SELECT DISTINCT 
                 price_date::date AS price_date,
-                CONCAT(EXTRACT(YEAR FROM price_date::date), 'Q', EXTRACT(QUARTER FROM price_date::date)) AS quarter_name
+                CONCAT(
+                    EXTRACT(YEAR FROM price_date::date), 'Q', EXTRACT(QUARTER FROM price_date::date)
+                ) AS quarter_name
             FROM prices_all
         ),
         batch_mapping AS (
@@ -78,6 +82,9 @@ class AVIVRawToHDPrices(Database):
             SELECT 
                 pa.aviv_geo_id,
                 pa.price_date::date,
+                daterange(
+                    price_date::date, (price_date::date + make_interval(months => 3))::date
+                ) AS interval,
                 CASE
                     WHEN rh.property_type = 'apartment' THEN (pa.apartment_price->>'value')::numeric
                     WHEN rh.property_type = 'house' THEN (pa.house_price->>'value')::numeric
@@ -117,7 +124,8 @@ class AVIVRawToHDPrices(Database):
             FROM geo_cache gc
         )
         INSERT INTO location_prices (
-            report_header_id, city_id, zip_code, price, unit, median, created_at, updated_at, country, max, min, score
+            report_header_id, city_id, zip_code, price, unit, median, 
+            created_at, updated_at, country, max, min, score, interval
         )
         SELECT 
             pd.report_header_id,
@@ -131,7 +139,8 @@ class AVIVRawToHDPrices(Database):
             'DE' AS country,
             pd.max,
             pd.min,
-            pd.score
+            pd.score,
+            pd.interval
         FROM price_data pd
         LEFT JOIN geo_data gd
         ON pd.aviv_geo_id = gd.aviv_geo_id
