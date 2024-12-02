@@ -18,18 +18,18 @@ def api_client():
 @pytest.mark.asyncio
 async def test_fetch_geocoding_data(api_client):
     base_url = settings.api.dev.geo_coding_url
-    zipcode = "10315"
-    name = "Ohne"
+    zipcode = {"id": "no_hd_geo_id_applicable", "name": "10315"}
+    city = {"id": "3fdcc595-161c-57c0-b786-94bc424ea460", "name": "Ohne"}
     
     # Mock the response data
-    response_data_zip = geo_responses.get(zipcode)
+    response_data_zip = geo_responses.get(zipcode['name'])
 
     with aioresponses() as m:
         # Mock the expected URL and response
-        m.get(f"{base_url}&postal_code={zipcode}", payload=response_data_zip)
+        m.get(f"{base_url}&postal_code={zipcode['name']}", payload=response_data_zip)
 
         # Call the function
-        result = await api_client.fetch_geocoding_data_by_zipcode(base_url, zipcode)
+        result = await api_client.fetch_geocoding_data(base_url, zipcode)
         
         # Verify the result
         assert isinstance(result, GeocodingResponse)
@@ -38,14 +38,14 @@ async def test_fetch_geocoding_data(api_client):
         assert result.coordinates == {"lat": 52.50339854556861, "lng": 13.518376766536123}
         assert result.match_name == "Friedrichsfelde"
 
-    response_data_city = geo_responses.get(name)
+    response_data_city = geo_responses.get(city["name"])
 
     with aioresponses() as m:
         # Mock the expected URL and response
-        m.get(f"{base_url}&city={name}", payload=response_data_city)
+        m.get(f"{base_url}&city={city['name']}", payload=response_data_city)
 
         # Call the function
-        result = await api_client.fetch_geocoding_data_by_name(base_url, name)
+        result = await api_client.fetch_geocoding_data(base_url, city)
         
         # Verify the result
         assert isinstance(result, GeocodingResponse)
@@ -79,19 +79,19 @@ async def test_fetch_price_data(api_client):
 @pytest.mark.asyncio
 async def test_get_geo_data_in_batch(api_client):
     base_url = settings.api.dev.geo_coding_url
-    zipcodes = ["10315", "12589"]
-    cities = ["Ohne", "Ködnitz"]
+    zipcodes = [{"id": "no_hd_geo_id_applicable", "name": "10315"}, {"id": "no_hd_geo_id_applicable", "name": "12589"}]
+    cities = [{"id": "3fdcc595-161c-57c0-b786-94bc424ea460", "name": "Ohne"}, {"id": "51011588-a60e-530f-9e70-0283b009abce", "name": "Ködnitz"}]
 
     # Mock response data for each request in the batch
     response_data = geo_responses
 
     with aioresponses() as m:
         # Mock each URL and response
-        m.get(f"{base_url}&postal_code=10315", payload=response_data.get(zipcodes[0]))
-        m.get(f"{base_url}&postal_code=12589", payload=response_data.get(zipcodes[1]))
+        m.get(f"{base_url}&postal_code=10315", payload=response_data.get(zipcodes[0]['name']))
+        m.get(f"{base_url}&postal_code=12589", payload=response_data.get(zipcodes[1]['name']))
 
         # Call get_data_in_batch with fetch_geocoding_data as the fetch_function
-        results = await api_client.get_data_in_batch(base_url, zipcodes, api_client.fetch_geocoding_data_by_zipcode)
+        results = await api_client.get_data_in_batch(base_url, zipcodes, api_client.fetch_geocoding_data)
         
         # Verify the results
         assert len(results) == 2
@@ -105,11 +105,11 @@ async def test_get_geo_data_in_batch(api_client):
 
     with aioresponses() as m:
         # Mock each URL and response
-        m.get(f"{base_url}&city=Ohne", payload=response_data.get(cities[0]))
-        m.get(f"{base_url}&city=Ködnitz", payload=response_data.get(cities[1]))
+        m.get(f"{base_url}&city=Ohne", payload=response_data.get(cities[0]['name']))
+        m.get(f"{base_url}&city=Ködnitz", payload=response_data.get(cities[1]['name']))
 
         # Call get_data_in_batch with fetch_geocoding_data as the fetch_function
-        results = await api_client.get_data_in_batch(base_url, cities, api_client.fetch_geocoding_data_by_name)
+        results = await api_client.get_data_in_batch(base_url, cities, api_client.fetch_geocoding_data)
         
         # Verify the results
         assert len(results) == 2

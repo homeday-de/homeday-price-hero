@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import json
+import logging
 from typing import List, Dict
 from dynaconf import Dynaconf
 from src.models import PriceResponse
@@ -9,10 +10,14 @@ from src.api_client import APIClient
 from src.lib.aws import S3Connector
 
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+
 class APIToPostgres(Database):
     
     def __init__(self, config: Dynaconf, test=False):
         super().__init__(config=config, test=test)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.GEOCODING_URL = None
         self.PRICE_URL = None
         self.api = None
@@ -29,12 +34,16 @@ class APIToPostgres(Database):
     async def run(self, geo_indices: Dict, price_date: str):
         if not self.api:
             self.api = self.api_client()
-        self.create_database()
-        self.create_tables()
-        prices_responses = await self.fetch_price(geo_indices, price_date)
-        for prices_response in prices_responses:
-            self.store_price_in_db(prices_response)
-        self.close_db_connection()
+        try:
+            self.logger.info("Starting extraction pipeline...")
+            self.create_database()
+            self.create_tables()
+            prices_responses = await self.fetch_price(geo_indices, price_date)
+            for prices_response in prices_responses:
+                self.store_price_in_db(prices_response)
+        finally:
+            self.close_db_connection()
+            self.logger.info("Pipeline execution completed.")
 
     async def fetch_price(self, geo_indices: Dict, price_date: str) -> PriceResponse:
         cached_geoid = await self.ensure_geoid_cache(geo_indices)
@@ -44,26 +53,24 @@ class APIToPostgres(Database):
     
     async def ensure_geoid_cache(self, geo_indices: Dict) -> List[str]:
         """Retrieve or fetch and cache geo_id for a given list of zip codes."""
-        zip_and_city = geo_indices['zip_codes'] + geo_indices['cities']
-        cached_geoid = self.get_cached_geoid(zip_and_city)
+        zipcode_in_list = [geo_indices['zip_codes'][i]['name'] for i, _ in enumerate(geo_indices['zip_codes'])]
+        cityname_in_list = [geo_indices['cities'][i]['name'] for i, _ in enumerate(geo_indices['cities'])]
+        all_index = zipcode_in_list + cityname_in_list
+        cached_geoid = self.get_cached_geoid(all_index)
         # Fetch and cache if not found
-        if not cached_geoid or len(cached_geoid) != len(zip_and_city):
+        if not cached_geoid or len(cached_geoid) != len(all_index):
             await self.fetch_geo(geo_indices)
-            cached_geoid = self.get_cached_geoid(zip_and_city)
+            cached_geoid = self.get_cached_geoid(all_index)
         
         return cached_geoid
 
     async def fetch_geo(self, geo_indices: Dict):
-        geocoding_responses_zip = await self.api.get_data_in_batch(self.GEOCODING_URL, geo_indices['zip_codes'], self.api.fetch_geocoding_data_by_zipcode)
+        geocoding_responses_zip = await self.api.get_data_in_batch(self.GEOCODING_URL, geo_indices['zip_codes'], self.api.fetch_geocoding_data)
         for geocoding_response in geocoding_responses_zip:
             self.cache_geo_response(geocoding_response)
-        geocoding_responses_city = await self.api.get_data_in_batch(self.GEOCODING_URL, geo_indices['cities'], self.api.fetch_geocoding_data_by_name)
+        geocoding_responses_city = await self.api.get_data_in_batch(self.GEOCODING_URL, geo_indices['cities'], self.api.fetch_geocoding_data)
         for geocoding_response in geocoding_responses_city:
             self.cache_geo_response(geocoding_response)
-
-    def close_db_connection(self):
-        if self.conn:
-            self.conn.close()
 
 
 class PostgresToS3(Database):
@@ -74,6 +81,7 @@ class PostgresToS3(Database):
         :param s3_connector: An instance of S3Connector for S3 operations.
         """
         super().__init__(config=config, test=test)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.s3_connector = s3_connector
 
     def run(self, table_name, transformed=False):
@@ -100,7 +108,7 @@ class PostgresToS3(Database):
                 rows = cur.fetchall()
                 return [dict(zip(columns, row)) for row in rows]
         except Exception as e:
-            print(f"Error dumping table {table_name} to JSON: {e}")
+            self.logger.error(f"Error dumping table {table_name} to JSON: {e}")
             return []
 
     def dump_and_upload(self, table_name: str, s3_key: str):
@@ -109,13 +117,13 @@ class PostgresToS3(Database):
         :param table_name: The name of the PostgreSQL table.
         :param s3_key: The S3 key (object name) for the uploaded JSON file.
         """
-        print(f"Dumping table '{table_name}' to JSON...")
+        self.logger.info(f"Dumping table '{table_name}' to JSON...")
         table_data = self.dump_table_to_json(table_name)
         if table_data:
-            print(f"Uploading table data to S3 bucket: {self.s3_connector.bucket_name}, key: {s3_key}")
+            self.logger.info(f"Uploading table data to S3 bucket: {self.s3_connector.bucket_name}, key: {s3_key}")
             self.s3_connector.upload_json_data(table_data, s3_key)
         else:
-            print(f"No data to upload for table {table_name}.")
+            self.logger.info(f"No data to upload for table {table_name}.")
 
     def save_json_to_file(self, data: List[Dict], file_path: str):
         """
@@ -126,6 +134,6 @@ class PostgresToS3(Database):
         try:
             with open(file_path, "w") as json_file:
                 json.dump(data, json_file, indent=4)
-            print(f"Data successfully saved to {file_path}")
+            self.logger.info(f"Data successfully saved to {file_path}")
         except Exception as e:
-            print(f"Error saving JSON to file {file_path}: {e}")
+            self.logger.error(f"Error saving JSON to file {file_path}: {e}")

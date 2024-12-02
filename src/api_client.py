@@ -1,7 +1,7 @@
 import aiohttp
 import asyncio
 from collections import deque
-from typing import List, Callable
+from typing import Callable, Dict, List, Union
 from src.models import GeocodingResponse, PriceResponse
 
 
@@ -15,7 +15,7 @@ class APIClient:
         self.geo_api_key = geoapi_key
         self.price_api_key = priceapi_key
 
-    async def get_data_in_batch(self, base_url: str, idx_group: List[str], fetch_function: Callable, **kwargs) -> List:
+    async def get_data_in_batch(self, base_url: str, idx_group: Union[List[str], List[Dict]], fetch_function: Callable, **kwargs) -> List:
     # Ensure fetch_function is a method of the current instance
         if not callable(fetch_function) or not hasattr(self, fetch_function.__name__):
             raise ValueError("fetch_function must be a method of the current instance")
@@ -33,34 +33,29 @@ class APIClient:
             await asyncio.sleep(self.rate_limit_interval)
 
         return results
-
-    async def fetch_geocoding_data_by_zipcode(self, base_url: str, zipcode: str) -> GeocodingResponse:
+            
+    async def fetch_geocoding_data(self, base_url: str, geo_obj: Dict) -> GeocodingResponse:
         headers = {'X-Api-Key': f"{self.geo_api_key}"}
         async with aiohttp.ClientSession() as session:
-            url = f"{base_url}&postal_code={zipcode}"
+            param = 'postal_code' if geo_obj['id'] == 'no_hd_geo_id_applicable' else 'city'
+            url = f"{base_url}&{param}={geo_obj['name']}"
             async with session.get(url, headers=headers) as response:
                 res = await response.json()
                 # Select the first match from the responses because it has the lowest geographic granularity
                 data = res.get('items', {}).get('aviv', {})[0].get('match', {})
-                return GeocodingResponse(zipcode, **data)
-    
-    async def fetch_geocoding_data_by_name(self, base_url: str, name: str) -> GeocodingResponse:
-        headers = {'X-Api-Key': f"{self.geo_api_key}"}
-        async with aiohttp.ClientSession() as session:
-            url = f"{base_url}&city={name}"
-            async with session.get(url, headers=headers) as response:
-                res = await response.json()
-                # Select the first match from the responses because it has the lowest geographic granularity
-                data = res.get('items', {}).get('aviv', {})[0].get('match', {})
-                return GeocodingResponse(name, **data)
+                return GeocodingResponse(geo_obj['name'], geo_obj['id'], **data)
 
     async def fetch_price_data(self, base_url: str, geoid: str, price_date: str) -> PriceResponse:
         headers = {'X-Api-Key': f"{self.price_api_key}"}
         async with aiohttp.ClientSession() as session:
             url = f"{base_url}/{geoid}?price_date={price_date}"
+            no_entity_placeholder = {
+                "aviv_geo_id": geoid, "price_date": price_date, "transaction_type": "TRANSACTION_TYPE.SELL",
+                "house_price": {}, "apartment_price": {}, "hybrid_price": {}
+            }
             async with session.get(url, headers=headers) as response:
                 if response.status == 404:
-                    return
+                    return PriceResponse(**no_entity_placeholder)
                 res = await response.json()
                 data = res.get('items', {})[0]
                 return PriceResponse(**data)

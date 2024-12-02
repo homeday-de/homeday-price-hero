@@ -13,6 +13,7 @@ db = Database(config=settings, test=True)
 def db_conn():
     """Fixture to set up the database connection and tables for testing."""
     # Connect to test database
+    db.create_database()
     db.connect_to_db()
     db.create_tables()
     yield db.conn
@@ -34,10 +35,20 @@ def test_create_tables(db_conn):
         cur.execute("SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'geo_cache');")
         assert cur.fetchone()[0] is True
 
+        cur.execute("SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'report_batches');")
+        assert cur.fetchone()[0] is True
+
+        cur.execute("SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'report_headers');")
+        assert cur.fetchone()[0] is True
+
+        cur.execute("SELECT EXISTS (SELECT FROM pg_tables WHERE tablename = 'location_prices');")
+        assert cur.fetchone()[0] is True
+
 # Test cache_geoid function
 def test_cache_geoid(db_conn):
     geocoding_response = GeocodingResponse(
         geo_index = "67890",
+        hd_geo_id="no_hd_geo_id_applicable",
         id = "geo456",
         type_key = "NBH2",
         coordinates = json.dumps({"lat": 52.503, "lng": 13.518}),
