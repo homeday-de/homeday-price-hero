@@ -153,9 +153,9 @@ class AVIVRawToHDPrices(Database):
         """
         try:
             self.logger.info("Starting transformation pipeline...")
-            self.execute_query("Creating report batches...", self.SQL_REPORT_BATCHES)
-            self.execute_query("Creating report headers...", self.SQL_REPORT_HEADERS)
-            self.execute_query("Creating location prices...", self.SQL_LOCATION_PRICES)
+            self.execute_query("Transforming data to report batches...", self.SQL_REPORT_BATCHES)
+            self.execute_query("Transforming data to report headers...", self.SQL_REPORT_HEADERS)
+            self.execute_query("Transforming data to location prices...", self.SQL_LOCATION_PRICES)
         finally:
             self.close_db_connection()
             self.logger.info("Pipeline execution completed.")

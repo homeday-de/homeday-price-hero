@@ -13,6 +13,7 @@ db = Database(config=settings, test=True)
 def db_conn():
     """Fixture to set up the database connection and tables for testing."""
     # Connect to test database
+    db.create_database()
     db.connect_to_db()
     db.create_tables()
     yield db.conn

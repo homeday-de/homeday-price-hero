@@ -1,11 +1,11 @@
 import psycopg
 import json
 import logging
-from typing import List
+from typing import List, Dict
 from psycopg import sql
 from dynaconf import Dynaconf
 from src.models import GeocodingResponse, PriceResponse
-from src.db.schema import create_, insert_
+from src.db.schema import create_, insert_, create_price_map_schema
 
 
 class Database:
@@ -58,14 +58,27 @@ class Database:
         if not self.conn:
             self.connect_to_db()
         with self.conn.cursor() as cur:
-            cur.execute(create_['prices_all'])
-            cur.execute(create_['geo_cache'])
-            cur.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
-            for table in create_['prices_mapped']:
-                cur.execute(table)
+            # Create landing tables for API response
+            self.execute_nested_query_structure(cur, create_)
+            
+            # Create a mapping to the HD prices database
+            report_batches = create_price_map_schema['report_batches']
+            self.execute_nested_query_structure(cur, report_batches)
+
+            report_headers = create_price_map_schema['report_headers']
+            self.execute_nested_query_structure(cur, report_headers)
+
+            location_prices = create_price_map_schema['location_prices']
+            self.execute_nested_query_structure(cur, location_prices)
+            
             # To avoid manual work in prices db, reset the id starting from 30 to avoid index conflict
             cur.execute('ALTER SEQUENCE report_batches_id_seq RESTART WITH 30;')
             self.conn.commit()
+
+    def execute_nested_query_structure(self, cursor, nest: Dict):
+        for name, query in nest.items():
+            self.logger.info(f"Creating {name}...")
+            cursor.execute(query)
 
     def get_cached_geoid(self, geo_index: List[str]):
         """Retrieve cached geo_id for a given zip code."""
