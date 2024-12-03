@@ -8,8 +8,8 @@ from src.models import GeocodingResponse, PriceResponse
 class APIClient:
     
     batch_size = 10
-    rate_limit = 50  # requests per minute
-    rate_limit_interval = 60 / rate_limit  # seconds between requests
+    rate_limit = 100  # requests per minute
+    rate_limit_interval = (batch_size / rate_limit) * 60  # seconds between requests
 
     def __init__(self, geoapi_key, priceapi_key):
         self.geo_api_key = geoapi_key

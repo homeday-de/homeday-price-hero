@@ -38,6 +38,7 @@ class APIToPostgres(Database):
             prices_responses = await self.fetch_price(geo_indices, price_date)
             for prices_response in prices_responses:
                 self.store_price_in_db(prices_response)
+            self.logger.info("Prices info has been cached")
         finally:
             self.close_db_connection()
             self.logger.info("Pipeline execution completed.")
@@ -58,7 +59,7 @@ class APIToPostgres(Database):
         if not cached_geoid or len(cached_geoid) != len(all_index):
             await self.fetch_geo(geo_indices)
             cached_geoid = self.get_cached_geoid(all_index)
-        
+        self.logger.info('Geo info has been cached')
         return cached_geoid
 
     async def fetch_geo(self, geo_indices: Dict):
@@ -81,7 +82,7 @@ class PostgresToS3(Database):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.s3_connector = s3_connector
 
-    def run(self, table_name, transformed=False, local=False):
+    def run(self, table_name, transformed=False, local=True):
         # Example configuration and usage
         quarter = datetime.date.today().strftime("%Y%m")  # e.g., "2024Q3"
         subfolder = "source_dump" if not transformed else "transformed"
@@ -92,7 +93,7 @@ class PostgresToS3(Database):
             self.dump_and_upload(table_name, s3_key)
         else:
             data = self.dump_table_to_json(table_name)
-            self.save_json_to_file(data, file_path=f"data/{table_name}_{quarter}.json")
+            self.save_json_to_file(data, file_path=f"data/{table_name}.json")
 
     def dump_table_to_json(self, table_name: str) -> List[Dict]:
         """
