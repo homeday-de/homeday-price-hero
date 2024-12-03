@@ -8,6 +8,7 @@ from src.models import PriceResponse
 from src.db import Database
 from src.api_client import APIClient
 from src.lib.aws import S3Connector
+from src.lib import benchmark
 
 
 class APIToPostgres(Database):
@@ -28,6 +29,7 @@ class APIToPostgres(Database):
             priceapi_key=self.api_config.price_api_key
         )
 
+    @benchmark(enabled=True)
     async def run(self, geo_indices: Dict, price_date: str):
         if not self.api:
             self.api = self.api_client()
