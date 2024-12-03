@@ -13,6 +13,7 @@ class Database:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.conn = None
         self.db_config = config.db.dev if not test else config.db.test
+        self.db_params = config.db.params
         
     def create_database(self):
         try:
@@ -21,21 +22,21 @@ class Database:
                 host=self.db_config.host,
                 port=self.db_config.port,
                 dbname="postgres",
-                user=self.db_config.user,
+                user=self.db_config.username,
                 password=self.db_config.password
             ) as conn:
                 conn.autocommit = True  # Enable autocommit for DDL commands
                 with conn.cursor() as cur:
                     # Check if the database exists
-                    cur.execute("SELECT 1 FROM pg_database WHERE datname = %s;", (self.db_config.name,))
+                    cur.execute("SELECT 1 FROM pg_database WHERE datname = %s;", (self.db_config.database,))
                     exists = cur.fetchone()
                     
                     # Create the database if it does not exist
                     if not exists:
-                        cur.execute(f"CREATE DATABASE {self.db_config.name};")
-                        self.logger.info(f"Database '{self.db_config.name}' created successfully.")
+                        cur.execute(f"CREATE DATABASE {self.db_config.database};")
+                        self.logger.info(f"Database '{self.db_config.database}' created successfully.")
                     else:
-                        self.logger.info(f"Database '{self.db_config.name}' already exists.")
+                        self.logger.info(f"Database '{self.db_config.database}' already exists.")
         except Exception as error:
             self.logger.error("Error creating database:", error)
 
@@ -44,8 +45,8 @@ class Database:
             self.conn = psycopg.connect(
                 host=self.db_config.host,
                 port=self.db_config.port,
-                dbname=self.db_config.name,
-                user=self.db_config.user,
+                dbname=self.db_config.database,
+                user=self.db_config.username,
                 password=self.db_config.password
             )
         except (Exception, psycopg.Error) as error:
@@ -71,8 +72,8 @@ class Database:
             location_prices = create_price_map_schema['location_prices']
             self.execute_nested_query_structure(cur, location_prices)
             
-            # To avoid manual work in prices db, reset the id starting from 30 to avoid index conflict
-            cur.execute('ALTER SEQUENCE report_batches_id_seq RESTART WITH 30;')
+            # Get the latest updated report_batches_id_seq numbers from the config
+            cur.execute(f'ALTER SEQUENCE report_batches_id_seq RESTART WITH {self.db_params.report_batch_id};')
             self.conn.commit()
 
     def execute_nested_query_structure(self, cursor, nest: Dict):
