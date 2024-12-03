@@ -72,9 +72,9 @@ class APIToPostgres(Database):
     
     async def ensure_geoid_cache(self, geo_indices: Dict) -> List[str]:
         """Retrieve or fetch and cache geo_id for a given list of zip codes."""
-        zipcode_in_list = [geo_indices['zip_codes'][i]['name'] for i, _ in enumerate(geo_indices['zip_codes'])]
-        cityname_in_list = [geo_indices['cities'][i]['name'] for i, _ in enumerate(geo_indices['cities'])]
-        all_index = zipcode_in_list + cityname_in_list
+        zipcode_in_list = (zipcode['name'] for zipcode in geo_indices['zip_codes'])
+        cityname_in_list = (city['name'] for city in geo_indices['cities'])
+        all_index = list(zipcode_in_list) + list(cityname_in_list)
         cached_geoid = self.get_cached_geoid(all_index)
         # Fetch and cache if not found
         if not cached_geoid or len(cached_geoid) != len(all_index):
