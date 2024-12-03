@@ -1,9 +1,7 @@
 import logging
 import aiohttp
-import asyncio
-from collections import deque
-from typing import Callable, Dict, List, Union
-import aiohttp.client_exceptions
+from typing import Dict
+from aiohttp.client_exceptions import ClientConnectorDNSError, ContentTypeError
 from src.models import GeocodingResponse, PriceResponse
 
 
@@ -17,25 +15,6 @@ class APIClient:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.geo_api_key = geoapi_key
         self.price_api_key = priceapi_key
-
-    async def get_data_in_batch(self, base_url: str, idx_group: Union[List[str], List[Dict]], fetch_function: Callable, **kwargs) -> List:
-    # Ensure fetch_function is a method of the current instance
-        if not callable(fetch_function) or not hasattr(self, fetch_function.__name__):
-            raise ValueError("fetch_function must be a method of the current instance")
-
-        results = []
-
-        batches = [idx_group[i:i + self.batch_size] for i in range(0, len(idx_group), self.batch_size)]
-        batch_queue = deque(batches)
-
-        while batch_queue:
-            batch = batch_queue.popleft()
-            coros = [fetch_function(base_url, unit, **kwargs) for unit in batch]
-            batch_results = await asyncio.gather(*coros)
-            results.extend(batch_results)
-            await asyncio.sleep(self.rate_limit_interval)
-
-        return results
             
     async def fetch_geocoding_data(self, base_url: str, geo_obj: Dict) -> GeocodingResponse:
         headers = {'X-Api-Key': f"{self.geo_api_key}"}
