@@ -2,7 +2,8 @@ import asyncio
 import datetime
 import json
 import logging
-from typing import List, Dict
+from collections import deque
+from typing import List, Dict, Union, Callable
 from dynaconf import Dynaconf
 from src.models import PriceResponse
 from src.db import Database
@@ -28,6 +29,27 @@ class APIToPostgres(Database):
             geoapi_key=self.api_config.geo_api_key,
             priceapi_key=self.api_config.price_api_key
         )
+    
+    async def process_data_in_batch(
+            self, base_url: str, idx_group: Union[List[str], List[Dict]], 
+            fetch_function: Callable, cache_function: Callable, **kwargs
+            ):
+
+        batches = [idx_group[i:i + self.api.batch_size] for i in range(0, len(idx_group), self.api.batch_size)]
+        total_batches = len(batches)
+        batch_queue = deque(batches)
+
+        logging.info(f"Starting data fetching from {fetch_function.__name__} in {total_batches} batches...")
+        batch_counter = 0  # To track the progress
+        while batch_queue:
+            batch_counter += 1
+            batch = batch_queue.popleft()
+            logging.info(f"Processing batch {batch_counter}/{total_batches}...")
+            coros_fetch = [fetch_function(base_url, unit, **kwargs) for unit in batch]
+            batch_results = await asyncio.gather(*coros_fetch)
+            for unit in batch_results:
+                cache_function(unit)
+            await asyncio.sleep(self.api.rate_limit_interval)
 
     @benchmark(enabled=True)
     async def run(self, geo_indices: Dict, price_date: str):
