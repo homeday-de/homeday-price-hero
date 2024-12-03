@@ -109,12 +109,52 @@ class SecretManager:
             else:
                 return base64.b64decode(get_secret_value_response["SecretBinary"])
 
+    def update_secret(self, secret_name):
 
+        session = boto3.session.Session()
+        client = session.client(service_name="secretsmanager", region_name=self.region_name)
+        with open(self.secret_path, 'r') as file:
+            data = json.load(file)
+        json_string = json.dumps(data, indent=4)
+
+        try:
+            update_secret_value_response = client.update_secret(SecretId=secret_name, SecretString=json_string)
+            print(update_secret_value_response)
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "DecryptionFailureException":
+                # Secrets Manager can't decrypt the protected secret text using the provided KMS key.
+                # Deal with the exception here, and/or rethrow at your discretion.
+                raise e
+            elif e.response["Error"]["Code"] == "InternalServiceErrorException":
+                # An error occurred on the server side.
+                # Deal with the exception here, and/or rethrow at your discretion.
+                raise e
+            elif e.response["Error"]["Code"] == "InvalidParameterException":
+                # You provided an invalid value for a parameter.
+                # Deal with the exception here, and/or rethrow at your discretion.
+                raise e
+            elif e.response["Error"]["Code"] == "InvalidRequestException":
+                # You provided a parameter value that is not valid for the current state of the resource.
+                # Deal with the exception here, and/or rethrow at your discretion.
+                raise e
+            elif e.response["Error"]["Code"] == "ResourceNotFoundException":
+                # We can't find the resource that you asked for.
+                # Deal with the exception here, and/or rethrow at your discretion.
+                raise e
+            
     def create_config_file(self, secret_name: str) -> Dict:
         secret_path = os.path.abspath(f"{self.secret_path}")
-        if not os.path.exists(secret_path):
-            secret_value = self.get_secret(f"homeday-prices-lake/{secret_name}")
-            secret = json.loads(secret_value)
+        if os.path.exists(secret_path):
+            os.remove(secret_path)
+        secret_value = self.get_secret(f"homeday-prices-lake/{secret_name}")
+        secret = json.loads(secret_value)
         
-            with open(self.secret_path, "w") as f:
-                json.dump(secret, f, indent=4)
+        with open(self.secret_path, "w") as f:
+            json.dump(secret, f, indent=4)
+
+    def update_secret_to_vault(self, secret_name: str):
+        secret_path = os.path.abspath(f"{self.secret_path}")
+        if not os.path.exists(secret_path):
+            raise FileNotFoundError("Local config file doesn't exist")
+        
+        return self.update_secret(f"homeday-prices-lake/{secret_name}")
