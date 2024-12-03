@@ -144,12 +144,13 @@ class SecretManager:
             
     def create_config_file(self, secret_name: str) -> Dict:
         secret_path = os.path.abspath(f"{self.secret_path}")
-        if not os.path.exists(secret_path):
-            secret_value = self.get_secret(f"homeday-prices-lake/{secret_name}")
-            secret = json.loads(secret_value)
+        if os.path.exists(secret_path):
+            os.remove(secret_path)
+        secret_value = self.get_secret(f"homeday-prices-lake/{secret_name}")
+        secret = json.loads(secret_value)
         
-            with open(self.secret_path, "w") as f:
-                json.dump(secret, f, indent=4)
+        with open(self.secret_path, "w") as f:
+            json.dump(secret, f, indent=4)
 
     def update_secret_to_vault(self, secret_name: str):
         secret_path = os.path.abspath(f"{self.secret_path}")
