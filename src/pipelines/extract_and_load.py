@@ -5,7 +5,6 @@ import logging
 from collections import deque
 from typing import List, Dict, Union, Callable
 from dynaconf import Dynaconf
-from src.models import PriceResponse
 from src.db import Database
 from src.api_client import APIClient
 from src.lib.aws import S3Connector
@@ -59,18 +58,16 @@ class APIToPostgres(Database):
             self.logger.info("Starting extraction pipeline...")
             self.create_database()
             self.create_tables()
-            prices_responses = await self.fetch_price(geo_indices, price_date)
-            for prices_response in prices_responses:
-                self.store_price_in_db(prices_response)
+            await self.fetch_price(geo_indices, price_date)
             self.logger.info("Prices info has been cached")
         finally:
             self.close_db_connection()
             self.logger.info("Pipeline execution completed.")
 
-    async def fetch_price(self, geo_indices: Dict, price_date: str) -> PriceResponse:
+    async def fetch_price(self, geo_indices: Dict, price_date: str):
         cached_geoid = await self.ensure_geoid_cache(geo_indices)
-        return await self.api.get_data_in_batch(
-            self.PRICE_URL, cached_geoid, self.api.fetch_price_data, price_date=price_date
+        await self.process_data_in_batch(
+            self.PRICE_URL, cached_geoid, self.api.fetch_price_data, self.store_price_in_db, price_date=price_date
         )
     
     async def ensure_geoid_cache(self, geo_indices: Dict) -> List[str]:
@@ -87,12 +84,8 @@ class APIToPostgres(Database):
         return cached_geoid
 
     async def fetch_geo(self, geo_indices: Dict):
-        geocoding_responses_zip = await self.api.get_data_in_batch(self.GEOCODING_URL, geo_indices['zip_codes'], self.api.fetch_geocoding_data)
-        for geocoding_response in geocoding_responses_zip:
-            self.cache_geo_response(geocoding_response)
-        geocoding_responses_city = await self.api.get_data_in_batch(self.GEOCODING_URL, geo_indices['cities'], self.api.fetch_geocoding_data)
-        for geocoding_response in geocoding_responses_city:
-            self.cache_geo_response(geocoding_response)
+        await self.process_data_in_batch(self.GEOCODING_URL, geo_indices['zip_codes'], self.api.fetch_geocoding_data, self.cache_geo_response)
+        await self.process_data_in_batch(self.GEOCODING_URL, geo_indices['cities'], self.api.fetch_geocoding_data, self.cache_geo_response)
 
 
 class PostgresToS3(Database):
