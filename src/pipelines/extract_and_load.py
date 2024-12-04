@@ -30,25 +30,47 @@ class APIToPostgres(Database):
         )
     
     async def process_data_in_batch(
-            self, base_url: str, idx_group: Union[List[str], List[Dict]], 
-            fetch_function: Callable, cache_function: Callable, **kwargs
-            ):
+            self,
+            base_url: str,
+            idx_group: Union[List[str], List[Dict]],
+            fetch_function: Callable,
+            cache_function: Callable,
+            batch_size: int,
+            rate_limit_interval: float,
+            **kwargs
+        ):
+        """
+        Process data in batches with optimized handling of batch fetches and caching.
 
-        batches = [idx_group[i:i + self.api.batch_size] for i in range(0, len(idx_group), self.api.batch_size)]
+        :param base_url: Base URL for the fetch function.
+        :param idx_group: List of indices or objects to process.
+        :param fetch_function: Function to fetch data.
+        :param cache_function: Function to store or cache results.
+        :param batch_size: Size of each batch.
+        :param rate_limit_interval: Delay between processing batches.
+        :param kwargs: Additional arguments for fetch_function.
+        """
+        # Pre-split batches and prepare queues
+        batches = [idx_group[i:i + batch_size] for i in range(0, len(idx_group), batch_size)]
         total_batches = len(batches)
-        batch_queue = deque(batches)
+        self.logger.info(f"Starting data fetching from {fetch_function.__name__} in {total_batches} batches...")
 
-        logging.info(f"Starting data fetching from {fetch_function.__name__} in {total_batches} batches...")
-        batch_counter = 0  # To track the progress
-        while batch_queue:
-            batch_counter += 1
-            batch = batch_queue.popleft()
-            logging.info(f"Processing batch {batch_counter}/{total_batches}...")
-            coros_fetch = [fetch_function(base_url, unit, **kwargs) for unit in batch]
-            batch_results = await asyncio.gather(*coros_fetch)
-            for unit in batch_results:
-                cache_function(unit)
-            await asyncio.sleep(self.api.rate_limit_interval)
+        async def process_single_batch(batch, batch_index):
+            """
+            Process a single batch: fetch data and cache results.
+            """
+            self.logger.info(f"Processing batch {batch_index}/{total_batches}...")
+            results = await asyncio.gather(*(fetch_function(base_url, unit, **kwargs) for unit in batch))
+            for result in results:
+                if result:
+                    cache_function(result)
+            self.logger.info(f"Batch {batch_index} is cached")
+
+        # Process batches with rate limiting
+        for index, batch in enumerate(batches, start=1):
+            await process_single_batch(batch, index)
+            if index < total_batches:  # Skip delay after the last batch
+                await asyncio.sleep(rate_limit_interval)
 
     @benchmark(enabled=True)
     async def run(self, geo_indices: Dict, price_date: str):
@@ -67,25 +89,30 @@ class APIToPostgres(Database):
     async def fetch_price(self, geo_indices: Dict, price_date: str):
         cached_geoid = await self.ensure_geoid_cache(geo_indices)
         await self.process_data_in_batch(
-            self.PRICE_URL, cached_geoid, self.api.fetch_price_data, self.store_price_in_db, price_date=price_date
+            self.PRICE_URL, cached_geoid, self.api.fetch_price_data, self.store_price_in_db,
+            self.api.batch_size, self.api.rate_limit_interval, price_date=price_date
         )
     
     async def ensure_geoid_cache(self, geo_indices: Dict) -> List[str]:
         """Retrieve or fetch and cache geo_id for a given list of zip codes."""
-        zipcode_in_list = (zipcode['name'] for zipcode in geo_indices['zip_codes'])
-        cityname_in_list = (city['name'] for city in geo_indices['cities'])
-        all_index = list(zipcode_in_list) + list(cityname_in_list)
-        cached_geoid = self.get_cached_geoid(all_index)
+        _all = geo_indices['zip_codes'] + geo_indices['cities']
+        all_index = [obj['name'] for obj in _all]
+        not_cached_yet = []
+        for obj in _all:
+            cached_geoid = self.get_cached_geoid([obj['name']])
+            if not cached_geoid:
+                not_cached_yet.append(obj)
+        self.logger.info(f"Found {len(not_cached_yet)} geo_indices haven't been cached yet")
+        await self.fetch_geo(not_cached_yet)
         # Fetch and cache if not found
-        if not cached_geoid or len(cached_geoid) != len(all_index):
-            await self.fetch_geo(geo_indices)
-            cached_geoid = self.get_cached_geoid(all_index)
+        cached_geoid = self.get_cached_geoid(all_index)
         self.logger.info('Geo info has been cached')
         return cached_geoid
 
-    async def fetch_geo(self, geo_indices: Dict):
-        await self.process_data_in_batch(self.GEOCODING_URL, geo_indices['zip_codes'], self.api.fetch_geocoding_data, self.cache_geo_response)
-        await self.process_data_in_batch(self.GEOCODING_URL, geo_indices['cities'], self.api.fetch_geocoding_data, self.cache_geo_response)
+    async def fetch_geo(self, index_group: List[Dict]):
+        await self.process_data_in_batch(
+            self.GEOCODING_URL, index_group, self.api.fetch_geocoding_data, self.cache_geo_response, 
+            self.api.batch_size, self.api.rate_limit_interval)
 
 
 class PostgresToS3(Database):
