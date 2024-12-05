@@ -36,12 +36,12 @@ class APIClient:
 
         response = await self._make_request(url, headers)
         if response:
-            data = self._validate_geocoding_data(response.get('items', {}).get('aviv', []))
+            data = self._validate_geocoding_data(response.get('items', {}).get('aviv', []), param_key)
             if data:
                 return GeocodingResponse(geo_obj['name'], geo_obj['id'], **data)
 
-        self.logger.error(f"Failed to fetch geocoding data for geo_obj: {geo_obj}")
-        return
+        self.logger.error(f"Failed to fetch geocoding data from aviv for geo_obj: {geo_obj}")
+        return self._default_geocoding_response(geo_obj['name'], geo_obj['id'])
 
     async def fetch_price_data(self, base_url: str, geoid: str, price_date: str) -> PriceResponse:
         headers = {'X-Api-Key': self.price_api_key}
@@ -67,22 +67,45 @@ class APIClient:
             apartment_price={},
             hybrid_price={}
         )
+    
+    @staticmethod
+    def _default_geocoding_response(geo_index: str, hd_geo_id: str) -> GeocodingResponse:
+        """Generate a default GeocodingResponse when no entity is found."""
+        return GeocodingResponse(
+            geo_index=geo_index,
+            hd_geo_id=hd_geo_id,
+            id=None,
+            type_key=None,
+            coordinates={},
+            bounding_box={},
+            match_name=None,
+            confidence_score=0,
+            parents=None
+        )
 
-    def _validate_geocoding_data(self, items: List[Dict]) -> Dict:
+    def _validate_geocoding_data(self, items: List[Dict], param_key: str) -> Dict:
         """
         Validate geocoding data to select the appropriate unit.
 
         :param items: List of geocoding response items.
+        :param param_key: Key indicating the parameter type (e.g., 'city', 'postal_code').
         :return: Validated geocoding data dictionary or empty dictionary if none found.
         """
         if not items:
             return {}
 
-        # Default to the first unit
-        selected_unit = items[0]
-        
-        # Check for 'type_key' and adjust selection if necessary
-        if selected_unit.get('match').get('type_key') == 'POCO' and len(items) > 1:
-            selected_unit = items[1]
+        item_order = 0
 
-        return selected_unit.get('match', {})
+        while item_order < len(items):
+            selected_unit = items[item_order]
+            type_key = selected_unit.get('match', {}).get('type_key')
+
+            # Check conditions based on param_key
+            if param_key == 'city' and type_key == 'AD08':
+                break
+            if param_key == 'postal_code' and type_key != 'POCO':
+                break
+
+            item_order += 1
+
+        return items[item_order].get('match', {}) if item_order < len(items) else {}
