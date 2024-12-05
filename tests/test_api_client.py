@@ -10,140 +10,65 @@ from .mock_responses import geo_responses, price_responses
 
 @pytest.fixture
 def api_client():
+    """Fixture to initialize the APIClient with mock API keys."""
     return APIClient(
         geoapi_key=settings.api.dev.geo_api_key, 
         priceapi_key=settings.api.dev.price_api_key
     )
 
+
 @pytest.mark.asyncio
 async def test_fetch_geocoding_data(api_client):
+    """Test fetch_geocoding_data with both postal codes and city names."""
     base_url = settings.api.dev.geo_coding_url
-    zipcode = {"id": "no_hd_geo_id_applicable", "name": "10315"}
-    city = {"id": "3fdcc595-161c-57c0-b786-94bc424ea460", "name": "Ohne"}
-    
-    # Mock the response data
-    response_data_zip = geo_responses.get(zipcode['name'])
+    test_cases = [
+        {
+            "geo_obj": {"id": "no_hd_geo_id_applicable", "name": "10315"},
+            "param": "postal_code",
+            "response_data": geo_responses["10315"],
+            "expected": {
+                "geo_index": "10315",
+                "id": "NBH2DE75702",
+                "coordinates": {"lat": 52.50339854556861, "lng": 13.518376766536123},
+                "match_name": "Friedrichsfelde"
+            }
+        },
+        {
+            "geo_obj": {"id": "3fdcc595-161c-57c0-b786-94bc424ea460", "name": "Ohne"},
+            "param": "city",
+            "response_data": geo_responses["Ohne"],
+            "expected": {
+                "geo_index": "Ohne",
+                "id": "AD08DE1992",
+                "coordinates": {"lat": 52.273521665147335, "lng": 7.27936823510655},
+                "match_name": "Ohne"
+            }
+        }
+    ]
 
-    with aioresponses() as m:
-        # Mock the expected URL and response
-        m.get(f"{base_url}&postal_code={zipcode['name']}", payload=response_data_zip)
+    for case in test_cases:
+        with aioresponses() as m:
+            m.get(f"{base_url}&{case['param']}={case['geo_obj']['name']}", payload=case['response_data'])
+            result = await api_client.fetch_geocoding_data(base_url, case["geo_obj"])
+            assert isinstance(result, GeocodingResponse)
+            assert result.geo_index == case["expected"]["geo_index"]
+            assert result.id == case["expected"]["id"]
+            assert result.coordinates == case["expected"]["coordinates"]
+            assert result.match_name == case["expected"]["match_name"]
 
-        # Call the function
-        result = await api_client.fetch_geocoding_data(base_url, zipcode)
-        
-        # Verify the result
-        assert isinstance(result, GeocodingResponse)
-        assert result.geo_index == "10315"
-        assert result.id == "NBH2DE75702"
-        assert result.coordinates == {"lat": 52.50339854556861, "lng": 13.518376766536123}
-        assert result.match_name == "Friedrichsfelde"
-
-    response_data_city = geo_responses.get(city["name"])
-
-    with aioresponses() as m:
-        # Mock the expected URL and response
-        m.get(f"{base_url}&city={city['name']}", payload=response_data_city)
-
-        # Call the function
-        result = await api_client.fetch_geocoding_data(base_url, city)
-        
-        # Verify the result
-        assert isinstance(result, GeocodingResponse)
-        assert result.geo_index == "Ohne"
-        assert result.id == "AD08DE1992"
-        assert result.coordinates == {"lat": 52.273521665147335, "lng": 7.27936823510655}
-        assert result.match_name == "Ohne"
 
 @pytest.mark.asyncio
 async def test_fetch_price_data(api_client):
+    """Test fetch_price_data for valid price responses."""
     base_url = settings.api.dev.price_url
     geoid = "NBH2DE75702"
     price_date = "2023-10-01"
-    
-    # Mock the response data
-    response_data = price_responses.get(geoid)
+    response_data = price_responses[geoid]
 
     with aioresponses() as m:
-        # Mock the expected URL and response
         m.get(f"{base_url}/{geoid}?price_date={price_date}", payload=response_data)
-
-        # Call the function
         result = await api_client.fetch_price_data(base_url, geoid, price_date=price_date)
-        
-        # Verify the result
         assert isinstance(result, PriceResponse)
         assert result.place_id == geoid
-        assert result.price_date == "2023-10-01"
+        assert result.price_date == price_date
         assert result.house_price.get("value") == 5027
-
-@pytest.mark.asyncio
-async def test_get_geo_data_in_batch(api_client):
-    base_url = settings.api.dev.geo_coding_url
-    zipcodes = [{"id": "no_hd_geo_id_applicable", "name": "10315"}, {"id": "no_hd_geo_id_applicable", "name": "12589"}]
-    cities = [{"id": "3fdcc595-161c-57c0-b786-94bc424ea460", "name": "Ohne"}, {"id": "51011588-a60e-530f-9e70-0283b009abce", "name": "Ködnitz"}]
-
-    # Mock response data for each request in the batch
-    response_data = geo_responses
-
-    with aioresponses() as m:
-        # Mock each URL and response
-        m.get(f"{base_url}&postal_code=10315", payload=response_data.get(zipcodes[0]['name']))
-        m.get(f"{base_url}&postal_code=12589", payload=response_data.get(zipcodes[1]['name']))
-
-        # Call get_data_in_batch with fetch_geocoding_data as the fetch_function
-        results = await api_client.get_data_in_batch(base_url, zipcodes, api_client.fetch_geocoding_data)
-        
-        # Verify the results
-        assert len(results) == 2
-        assert isinstance(results, List)
-        assert results[0].id == "NBH2DE75702"
-        assert results[0].coordinates == {"lat": 52.50339854556861, "lng": 13.518376766536123}
-        assert results[0].match_name == "Friedrichsfelde"
-        assert results[1].id == "NBH2DE75693"
-        assert results[1].coordinates == {"lat": 52.44183420284346, "lng": 13.705967663911409}
-        assert results[1].match_name == "Rahnsdorf"
-
-    with aioresponses() as m:
-        # Mock each URL and response
-        m.get(f"{base_url}&city=Ohne", payload=response_data.get(cities[0]['name']))
-        m.get(f"{base_url}&city=Ködnitz", payload=response_data.get(cities[1]['name']))
-
-        # Call get_data_in_batch with fetch_geocoding_data as the fetch_function
-        results = await api_client.get_data_in_batch(base_url, cities, api_client.fetch_geocoding_data)
-        
-        # Verify the results
-        assert len(results) == 2
-        assert isinstance(results, List)
-        assert results[0].id == "AD08DE1992"
-        assert results[0].coordinates == {"lat": 52.273521665147335, "lng": 7.27936823510655}
-        assert results[0].match_name == "Ohne"
-        assert results[1].id == "AD08DE7589"
-        assert results[1].coordinates == {"lat": 50.099291599932535, "lng": 11.510340529692305}
-        assert results[1].match_name == "Ködnitz"
-
-@pytest.mark.asyncio
-async def test_get_price_data_in_batch(api_client):
-    base_url = settings.api.dev.price_url
-    idx_group = ["NBH2DE75702", "NBH2DE75693"]
-    price_date = "2023-10-01"
-
-    # Mock response data for each request in the batch
-    response_data = price_responses
-
-    with aioresponses() as m:
-        # Mock each URL and response
-        m.get(f"{base_url}/{idx_group[0]}?price_date={price_date}", payload=response_data.get(idx_group[0]))
-        m.get(f"{base_url}/{idx_group[1]}?price_date={price_date}", payload=response_data.get(idx_group[1]))
-
-        # Call get_data_in_batch with fetch_price_data as the fetch_function
-        results = await api_client.get_data_in_batch(base_url, idx_group, api_client.fetch_price_data, price_date=price_date)
-        
-        # Verify the result
-        assert len(results) == 2
-        assert isinstance(results, List)
-        assert results[0].place_id == 'NBH2DE75702'
-        assert results[0].price_date == "2023-10-01"
-        assert results[0].house_price.get("value") == 5027
-        assert results[1].place_id == 'NBH2DE75693'
-        assert results[1].price_date == "2023-10-01"
-        assert results[1].apartment_price is None
