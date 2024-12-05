@@ -104,6 +104,16 @@ class TestAPIToPostgres(TestFixtures):
     """Test suite for the APIToPostgres class."""
 
     @pytest.mark.asyncio
+    async def test_fetch_with_retry(self, mock_api_to_postgres):
+        mock_fetch_function = AsyncMock(side_effect=[Exception("Error"), {"data": "success"}])
+        result = await mock_api_to_postgres.fetch_with_retry(
+            base_url="http://example.com", unit={"id": 1}, fetch_function=mock_fetch_function
+        )
+        assert result == {"data": "success"}
+        assert mock_fetch_function.call_count == 2  # First call fails, second succeeds
+
+
+    @pytest.mark.asyncio
     async def test_process_data_in_batch(self, mock_api_to_postgres):
         """Test the process_data_in_batch method."""
         mock_fetch_function = AsyncMock()

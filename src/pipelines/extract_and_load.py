@@ -5,6 +5,7 @@ import logging
 from collections import deque
 from typing import List, Dict, Union, Callable
 from dynaconf import Dynaconf
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from src.db import Database
 from src.api_client import APIClient
 from src.lib.aws import S3Connector
@@ -28,6 +29,17 @@ class APIToPostgres(Database):
             geoapi_key=self.api_config.geo_api_key,
             priceapi_key=self.api_config.price_api_key
         )
+    
+    @retry(
+        stop=stop_after_attempt(2),  # Retry up to 2 times
+        wait=wait_exponential(multiplier=1, min=2, max=10),  # Exponential backoff: 2s, 4s, 8s
+        retry=retry_if_exception_type(Exception),  # Retry on any exception
+        reraise=True  # Raise the last exception if retries fail
+    )
+    async def fetch_with_retry(self, base_url, unit, fetch_function, **kwargs):
+        """Fetch data with retry mechanism."""
+        self.logger.debug(f"Fetching data for {unit} from {base_url}...")
+        return await fetch_function(base_url, unit, **kwargs)
     
     async def process_data_in_batch(
             self,
@@ -60,11 +72,15 @@ class APIToPostgres(Database):
             Process a single batch: fetch data and cache results.
             """
             self.logger.info(f"Processing batch {batch_index}/{total_batches}...")
-            results = await asyncio.gather(*(fetch_function(base_url, unit, **kwargs) for unit in batch))
+            results = await asyncio.gather(
+                *(self.fetch_with_retry(base_url, unit, fetch_function, **kwargs) for unit in batch),
+                return_exceptions=True  # Prevent a single failure from stopping all
+            )
             for result in results:
-                if result:
-                    cache_function(result)
-            self.logger.info(f"Batch {batch_index} is cached")
+                if not result or isinstance(result, Exception):
+                    self.logger.error(f"Failed to fetch data for batch {batch_index}: {result}")
+                    continue
+                cache_function(result)
 
         # Process batches with rate limiting
         for index, batch in enumerate(batches, start=1):
