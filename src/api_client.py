@@ -62,7 +62,7 @@ class APIClient:
         return PriceResponse(
             place_id=geoid,
             price_date=price_date,
-            transaction_type="TRANSACTION_TYPE.SELL",
+            transaction_type=None,
             house_price={},
             apartment_price={},
             hybrid_price={}
