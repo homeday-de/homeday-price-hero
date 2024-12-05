@@ -104,54 +104,117 @@ class TestAPIToPostgres(TestFixtures):
     """Test suite for the APIToPostgres class."""
 
     @pytest.mark.asyncio
-    async def test_fetch_price(self, mock_api_to_postgres):
-        """Test the fetch_price method of APIToPostgres."""
-        zip_codes = ["12345", "67890"]
-        price_date = "2024-01-01"
+    async def test_process_data_in_batch(self, mock_api_to_postgres):
+        """Test the process_data_in_batch method."""
+        mock_fetch_function = AsyncMock()
+        mock_cache_function = MagicMock()
+        idx_group = [{"id": "1"}, {"id": "2"}, {"id": "3"}]
+        batch_size = 2
+        rate_limit_interval = 0.1
 
-        # Mock APIClient and its methods
-        mock_api_client = MagicMock()
-        mock_api_client.get_data_in_batch = AsyncMock(return_value=[
-            PriceResponse(
-                place_id="place_123",
-                price_date="2024-01-01",
-                transaction_type="sale",
-                house_price={"median": 300000, "average": 310000},
-                apartment_price={"median": 200000, "average": 210000},
-                hybrid_price={"median": 250000, "average": 260000}
-            ),
-            PriceResponse(
-                place_id="place_456",
-                price_date="2024-01-01",
-                transaction_type="rent",
-                house_price={"median": 1000, "average": 1100},
-                apartment_price={"median": 800, "average": 900},
-                hybrid_price={"median": 900, "average": 950}
-            ),
-        ])
+        # Mock fetch function to return the index as a result
+        mock_fetch_function.side_effect = lambda base_url, unit, **kwargs: {"data": unit}
+        mock_cache_function.side_effect = lambda result: None
 
-        # Patch dependent methods
-        with patch.object(mock_api_to_postgres, "api_client", return_value=mock_api_client), \
-             patch.object(mock_api_to_postgres, "ensure_geoid_cache", new_callable=AsyncMock) as mock_ensure_cache:
-
-            # Set up return values
-            mock_ensure_cache.return_value = ["place_123", "place_456"]
-            mock_api_to_postgres.api = mock_api_client
-
-            # Call the fetch_price method
-            result = await mock_api_to_postgres.fetch_price(zip_codes, price_date)
+        with patch.object(mock_api_to_postgres, "logger") as mock_logger:
+            await mock_api_to_postgres.process_data_in_batch(
+                base_url="http://example.com",
+                idx_group=idx_group,
+                fetch_function=mock_fetch_function,
+                cache_function=mock_cache_function,
+                batch_size=batch_size,
+                rate_limit_interval=rate_limit_interval,
+            )
 
             # Assertions
-            mock_ensure_cache.assert_awaited_once_with(zip_codes)
-            mock_api_client.get_data_in_batch.assert_awaited_once_with(
-                mock_api_to_postgres.PRICE_URL,
-                ["place_123", "place_456"],
-                mock_api_client.fetch_price_data,
-                price_date=price_date
-            )
-            assert len(result) == 2
-            assert isinstance(result[0], PriceResponse)
-            assert result[0].place_id == "place_123"
-            assert result[0].house_price["median"] == 300000
-            assert result[1].transaction_type == "rent"
-            assert result[1].apartment_price["average"] == 900
+            assert mock_fetch_function.call_count == len(idx_group)
+            assert mock_cache_function.call_count == len(idx_group)
+            mock_logger.info.assert_called()
+
+
+    @pytest.mark.asyncio
+    async def test_run(self, mock_api_to_postgres):
+        """Test the run method."""
+        mock_api_to_postgres.api = MagicMock()
+        mock_api_to_postgres.create_database = MagicMock()
+        mock_api_to_postgres.create_tables = MagicMock()
+        mock_api_to_postgres.ensure_geoid_cache = AsyncMock()
+        mock_api_to_postgres.fetch_price = AsyncMock()
+        mock_api_to_postgres.close_db_connection = MagicMock()
+
+        geo_indices = {"zip_codes": [{"name": "12345"}], "cities": [{"name": "Berlin"}]}
+        price_date = "2024-01-01"
+
+        await mock_api_to_postgres.run(geo_indices, price_date)
+
+        # Assertions
+        mock_api_to_postgres.create_database.assert_called_once()
+        mock_api_to_postgres.create_tables.assert_called_once()
+        mock_api_to_postgres.ensure_geoid_cache.assert_awaited_once_with(geo_indices)
+        mock_api_to_postgres.fetch_price.assert_awaited_once_with(price_date)
+        mock_api_to_postgres.close_db_connection.assert_called_once()
+
+
+    @pytest.mark.asyncio
+    async def test_fetch_price(self, mock_api_to_postgres):
+        """Test the fetch_price method."""
+        mock_api_to_postgres.api = MagicMock()
+        mock_api_to_postgres.get_validated_price = MagicMock(return_value=["geoid_1", "geoid_2"])
+        mock_api_to_postgres.process_data_in_batch = AsyncMock()
+
+        price_date = "2024-01-01"
+
+        await mock_api_to_postgres.fetch_price(price_date)
+
+        # Assertions
+        mock_api_to_postgres.get_validated_price.assert_called_once_with(price_date)
+        mock_api_to_postgres.process_data_in_batch.assert_awaited_once_with(
+            mock_api_to_postgres.PRICE_URL,
+            ["geoid_1", "geoid_2"],
+            mock_api_to_postgres.api.fetch_price_data,
+            mock_api_to_postgres.store_price_in_db,
+            mock_api_to_postgres.api.batch_size,
+            mock_api_to_postgres.api.rate_limit_interval,
+            price_date=price_date,
+        )
+
+
+    @pytest.mark.asyncio
+    async def test_ensure_geoid_cache(self, mock_api_to_postgres):
+        """Test the ensure_geoid_cache method."""
+        mock_api_to_postgres.get_cached_geoid = MagicMock(side_effect=lambda names: None if names[0] == "12345" else ["geoid_456"])
+        mock_api_to_postgres.fetch_geo = AsyncMock()
+
+        geo_indices = {
+            "zip_codes": [{"name": "12345"}, {"name": "67890"}],
+            "cities": [{"name": "Berlin"}]
+        }
+
+        await mock_api_to_postgres.ensure_geoid_cache(geo_indices)
+
+        # Assertions
+        mock_api_to_postgres.get_cached_geoid.assert_any_call(["12345"])
+        mock_api_to_postgres.get_cached_geoid.assert_any_call(["67890"])
+        mock_api_to_postgres.get_cached_geoid.assert_any_call(["Berlin"])
+        mock_api_to_postgres.fetch_geo.assert_awaited_once_with([{"name": "12345"}])
+
+
+    @pytest.mark.asyncio
+    async def test_fetch_geo(self, mock_api_to_postgres):
+        """Test the fetch_geo method."""
+        mock_api_to_postgres.api = MagicMock()
+        mock_api_to_postgres.process_data_in_batch = AsyncMock()
+
+        index_group = [{"name": "Berlin"}, {"name": "Hamburg"}]
+
+        await mock_api_to_postgres.fetch_geo(index_group)
+
+        # Assertions
+        mock_api_to_postgres.process_data_in_batch.assert_awaited_once_with(
+            mock_api_to_postgres.GEOCODING_URL,
+            index_group,
+            mock_api_to_postgres.api.fetch_geocoding_data,
+            mock_api_to_postgres.cache_geo_response,
+            mock_api_to_postgres.api.batch_size,
+            mock_api_to_postgres.api.rate_limit_interval,
+        )
