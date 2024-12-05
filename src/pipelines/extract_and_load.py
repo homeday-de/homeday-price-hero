@@ -86,8 +86,8 @@ class APIToPostgres(Database):
             self.close_db_connection()
             self.logger.info("Pipeline execution completed.")
 
-    async def fetch_price(self, geo_indices: Dict, price_date: str):
-        cached_geoid = await self.ensure_geoid_cache(geo_indices)
+    async def fetch_price(self, price_date: str):
+        cached_geoid = self.get_validated_price(price_date)
         await self.process_data_in_batch(
             self.PRICE_URL, cached_geoid, self.api.fetch_price_data, self.store_price_in_db,
             self.api.batch_size, self.api.rate_limit_interval, price_date=price_date
