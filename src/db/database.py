@@ -120,6 +120,24 @@ class Database:
             cur.execute(insert_['geo_cache'], geocoding_data)
             self.conn.commit()
 
+    def get_validated_price(self, price_date: str):
+        if not self.conn:
+            self.connect_to_db()
+        with self.conn.cursor() as cur:
+            select_query = sql.SQL(
+                    f"""
+                    SELECT aviv_geo_id FROM geo_cache
+                    WHERE aviv_geo_id NOT IN (
+                        SELECT aviv_geo_id FROM prices_all 
+                        WHERE price_date = '{price_date}' AND 
+                        transaction_type IS NOT NULL
+                        )
+                    """
+                )
+            cur.execute(select_query)
+            results = cur.fetchall()
+        return [result[0] for result in results] if results else None
+
     def store_price_in_db(self, price_response: PriceResponse):
         """Store price response data in the prices_all table."""
         if not self.conn:
