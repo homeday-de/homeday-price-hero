@@ -80,7 +80,8 @@ class APIToPostgres(Database):
             self.logger.info("Starting extraction pipeline...")
             self.create_database()
             self.create_tables()
-            await self.fetch_price(geo_indices, price_date)
+            await self.ensure_geoid_cache(geo_indices)
+            await self.fetch_price(price_date)
             self.logger.info("Prices info has been cached")
         finally:
             self.close_db_connection()
