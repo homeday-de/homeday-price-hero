@@ -74,7 +74,7 @@ class APIClient:
         return GeocodingResponse(
             geo_index=geo_index,
             hd_geo_id=hd_geo_id,
-            id=None,
+            id='no_aviv_id_available',
             type_key=None,
             coordinates={},
             bounding_box={},

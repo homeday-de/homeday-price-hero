@@ -127,7 +127,8 @@ class Database:
             select_query = sql.SQL(
                     f"""
                     SELECT aviv_geo_id FROM geo_cache
-                    WHERE aviv_geo_id NOT IN (
+                    WHERE aviv_geo_id != 'no_aviv_id_available'
+                    AND aviv_geo_id NOT IN (
                         SELECT aviv_geo_id FROM prices_all 
                         WHERE price_date = '{price_date}' AND 
                         transaction_type IS NOT NULL
