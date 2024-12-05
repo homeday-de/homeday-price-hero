@@ -73,7 +73,12 @@ class Database:
             self.execute_nested_query_structure(cur, location_prices)
             
             # Get the latest updated report_batches_id_seq numbers from the config
-            cur.execute(f'ALTER SEQUENCE report_batches_id_seq RESTART WITH {self.db_params.report_batch_id};')
+            cur.execute(
+                sql.SQL("ALTER SEQUENCE {} RESTART WITH {}").format(
+                    sql.Identifier('report_batches_id_seq'),
+                    sql.Literal(self.db_params.report_batch_id)
+                )
+            )
             self.conn.commit()
 
     def execute_nested_query_structure(self, cursor, nest: Dict):
