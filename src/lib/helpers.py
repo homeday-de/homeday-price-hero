@@ -1,3 +1,4 @@
+import json
 import time
 import logging
 from functools import wraps
@@ -36,3 +37,35 @@ def benchmark(enabled=True):
             return sync_wrapper
 
     return decorator
+
+
+def update_report_batch_id(file_path, latest_value):
+    """
+    Update the report_batch_id in the JSON file to the latest_value and save the file.
+
+    Args:
+        file_path (str): Path to the JSON file.
+        latest_value (int): New value for report_batch_id.
+
+    Returns:
+        None
+    """
+    try:
+        # Load the JSON file
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+        
+        # Update the report_batch_id
+        if 'db' in data and 'params' in data['db']:
+            data['db']['params']['report_batch_id'] = latest_value
+        else:
+            raise KeyError("The required keys (db -> params -> report_batch_id) are missing in the JSON file.")
+        
+        # Save the updated JSON back to the file
+        with open(file_path, 'w') as file:
+            json.dump(data, file, indent=4)
+        
+        print(f"report_batch_id successfully updated to {latest_value}")
+    
+    except Exception as e:
+        print(f"An error occurred: {e}")
