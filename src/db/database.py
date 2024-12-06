@@ -156,6 +156,17 @@ class Database:
                 cur.execute(insert_['prices_all'], price_data)
                 self.conn.commit()
 
+    def get_last_value_sequence(self):
+        if not self.conn:
+            self.connect_to_db()
+        with self.conn.cursor() as cur:
+            select_query = sql.SQL("SELECT last_value FROM {}").format(
+                        sql.Identifier('report_batches_id_seq')
+                    )
+            cur.execute(select_query)
+            result = cur.fetchone()
+        return result[0]
+
     def close_db_connection(self):
         if self.conn:
             self.conn.close()
