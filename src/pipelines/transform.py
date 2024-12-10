@@ -19,13 +19,14 @@ class AVIVRawToHDPrices(Database):
             SELECT DISTINCT price_date
             FROM prices_all
         ) price_dates
+        ON CONFLICT (name) DO NOTHING
     """
 
     SQL_REPORT_HEADERS = """
         WITH distinct_prices AS (
             -- Extract distinct price_date and map to year-quarter format
             SELECT DISTINCT 
-                price_date::date AS price_date,
+                DATE_TRUNC('quarter', price_date::date)::date AS price_date,
                 CONCAT(
                     EXTRACT(YEAR FROM price_date::date), 'Q', EXTRACT(QUARTER FROM price_date::date)
                 ) AS quarter_name
@@ -74,6 +75,7 @@ class AVIVRawToHDPrices(Database):
             1 AS source, -- Default value, adjust as needed
             er.report_batch_id
         FROM expanded_rows er
+        ON CONFLICT (id) DO NOTHING
     """
 
     SQL_LOCATION_PRICES = """
@@ -81,7 +83,7 @@ class AVIVRawToHDPrices(Database):
             -- Extract prices based on property_type from prices_all
             SELECT 
                 pa.aviv_geo_id,
-                pa.price_date::date,
+                DATE_TRUNC('quarter', price_date::date)::date AS price_date,
                 daterange(
                     price_date::date, (price_date::date + make_interval(months => 3))::date
                 ) AS interval,
@@ -150,6 +152,7 @@ class AVIVRawToHDPrices(Database):
             OR
             -- Map `cities` to valid `hd_geo_id`
             (pd.header_name = 'cities' AND gd.hd_geo_id != 'no_hd_geo_id_applicable')
+        ON CONFLICT (id) DO NOTHING
     """
 
     def __init__(self, config: Dynaconf, test=False):

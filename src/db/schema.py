@@ -34,7 +34,13 @@ insert_prices_all = """
     INSERT INTO prices_all (
         aviv_geo_id, price_date, transaction_type, house_price, apartment_price, hybrid_price
     ) VALUES (%s, %s, %s, %s, %s, %s)
-    ON CONFLICT (aviv_geo_id, price_date) DO NOTHING
+    ON CONFLICT (aviv_geo_id, price_date)
+    DO UPDATE SET
+        transaction_type = COALESCE(EXCLUDED.transaction_type, prices_all.transaction_type),
+        house_price = EXCLUDED.house_price,
+        apartment_price = EXCLUDED.apartment_price,
+        hybrid_price = EXCLUDED.hybrid_price
+    WHERE prices_all.transaction_type IS NULL
 """
 
 create_report_batches = {
