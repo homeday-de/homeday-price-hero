@@ -3,6 +3,8 @@ import time
 import logging
 from functools import wraps
 import inspect
+import asyncclick as click
+from datetime import date
 
 
 logger = logging.getLogger(__name__)  # Create a logger instance
@@ -69,3 +71,45 @@ def update_report_batch_id(file_path, latest_value):
     
     except Exception as e:
         print(f"An error occurred: {e}")
+
+
+def get_first_day_of_quarter(quarter_name):
+    """
+    Returns the first day of the given quarter as a string in the format 'YYYY-MM-DD'.
+    
+    Parameters:
+    quarter_name (str): The quarter name in the format 'YYYYQX', e.g., '2024Q1', '2023Q4'.
+    
+    Returns:
+    str: The first day of the quarter in the format 'YYYY-MM-DD'.
+    """
+    # Map of quarter to starting month
+    quarter_to_month = {
+        "Q1": "01",
+        "Q2": "04",
+        "Q3": "07",
+        "Q4": "10"
+    }
+    
+    # Extract the year and quarter
+    try:
+        year = quarter_name[:4]
+        quarter = quarter_name[4:]
+        if quarter not in quarter_to_month:
+            raise ValueError("Invalid quarter format")
+        
+        # Formulate the first day of the quarter
+        first_day = f"{year}-{quarter_to_month[quarter]}-01"
+        return first_day
+    except Exception as e:
+        return f"Error: {e}"
+
+
+def validate_year(ctx, param, value):
+    current_year = date.today().year
+    last_2years = current_year - 2
+    if value and value.isdigit():
+        year = int(value)
+        if year >= last_2years and year <= current_year:
+            return str(year)
+    raise click.BadParameter(f'Invalid year or the data for year {year} is not available')

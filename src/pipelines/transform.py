@@ -166,7 +166,7 @@ class AVIVRawToHDPrices(Database):
             self.execute_query("Transforming data to report headers...", self.SQL_REPORT_HEADERS)
             self.execute_query("Transforming data to location prices...", self.SQL_LOCATION_PRICES)
         finally:
-            self.close_db_connection()
+            self.db_handler.close()
             self.logger.info("Pipeline execution completed.")
 
     def execute_query(self, task_description, query):
@@ -174,12 +174,12 @@ class AVIVRawToHDPrices(Database):
         Execute a SQL query and log the task description.
         """
         self.logger.info(task_description)
-        if not self.conn:
-            self.connect_to_db()
+        if not self.db_handler.conn:
+            self.db_handler.connect()
         try:
-            with self.conn.cursor() as cur:
+            with self.db_handler.conn.cursor() as cur:
                 cur.execute(query)
-                self.conn.commit()
+                self.db_handler.conn.commit()
             self.logger.info(f"{task_description} - Success.")
         except Exception as e:
             self.logger.error(f"{task_description} - Failed. Error: {e}")
