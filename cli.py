@@ -2,7 +2,7 @@ import asyncio
 import asyncclick as click
 import logging
 from src.db import DatabaseHandler
-from src.pipelines import APIToPostgres, PostgresToS3, AVIVRawToHDPrices
+from src.pipelines import APIToPostgres, PostgresToS3, AVIVRawToHDPrices, TransformedPricesHealthCheck
 from src.lib.aws import S3Connector, SecretManager
 from src.lib import get_first_day_of_quarter, validate_year
 
@@ -40,6 +40,10 @@ def transform_prices(config, is_test: bool):
     """
     transformer = AVIVRawToHDPrices(config, is_test)
     transformer.run()
+
+def transformed_prices_health_check(config, is_test: bool):
+    health_check = TransformedPricesHealthCheck(config, is_test)
+    health_check.run_all_checks()
 
 def backup_pg_to_filesystem(config, is_test: bool, save_local: bool):
     """
@@ -123,6 +127,7 @@ async def run_etl_process(
 
         if should_transform:
             transform_prices(config=settings, is_test=is_test)
+            transformed_prices_health_check(config=settings, is_test=is_test)
 
         backup_pg_to_filesystem(config=settings, is_test=is_test, save_local=save_local)
         configure_secrets(secret_manager, action="update")
@@ -149,7 +154,7 @@ async def run_etl_process(
 )
 @click.option('--price_year', help='Year for AVIV price API query.')
 @click.option('--price_quarter', type=click.Choice(["Q1", "Q2", "Q3", "Q4"]), help='Quarter for AVIV price API query.')
-@click.option('--transform', is_flag=True, help='Run data transformation to HD prices schema.')
+@click.option('--transform', is_flag=True, default=True, help='Run data transformation to HD prices schema.')
 @click.option('--test', is_flag=True, default=True, help='Run in test mode.')
 @click.option('--local', is_flag=True, default=True, help='Save source data tables locally.')
 async def main(process, price_year, price_quarter, transform, test, local):

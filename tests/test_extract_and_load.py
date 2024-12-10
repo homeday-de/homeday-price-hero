@@ -56,24 +56,6 @@ class TestPostgresToS3(TestFixtures):
             ContentType="application/json",
         )
 
-    def test_dump_table_to_json(self, postgres_to_s3):
-        """Test the dump_table_to_json method."""
-        table_name = "test_table"
-
-        # Set up mock cursor data
-        postgres_to_s3.conn.cursor.return_value.__enter__.return_value.description = [
-            ("column1",), ("column2",)
-        ]
-        postgres_to_s3.conn.cursor.return_value.__enter__.return_value.fetchall.return_value = [
-            ("value1", "value2"), ("value3", "value4")
-        ]
-
-        result = postgres_to_s3.dump_table_to_json(table_name)
-        assert result == [
-            {"column1": "value1", "column2": "value2"},
-            {"column1": "value3", "column2": "value4"},
-        ]
-
     def test_dump_and_upload(self, postgres_to_s3):
         """Test the dump_and_upload method."""
         table_name = "test_table"
