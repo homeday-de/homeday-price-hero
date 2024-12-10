@@ -165,14 +165,16 @@ class AVIVRawToHDPrices(Database):
         """
         try:
             self.logger.info("Starting transformation pipeline...")
-            self.execute_query("Transforming data to report batches...", self.SQL_REPORT_BATCHES)
-            self.execute_query("Transforming data to report headers...", self.SQL_REPORT_HEADERS)
-            self.execute_query("Transforming data to location prices...", self.SQL_LOCATION_PRICES)
+            self.execute_tramsform_query("Transforming data to report batches...", self.SQL_REPORT_BATCHES)
+            self.execute_tramsform_query("Transforming data to report headers...", self.SQL_REPORT_HEADERS)
+            self.execute_tramsform_query("Transforming data to location prices...", self.SQL_LOCATION_PRICES)
+            last_value = self.get_last_value_sequence()
+            update_report_batch_id(file_path="config/.secrets.json", latest_value=last_value+1)
         finally:
             self.db_handler.close()
             self.logger.info("Pipeline execution completed.")
 
-    def execute_query(self, task_description, query):
+    def execute_tramsform_query(self, task_description, query):
         """
         Execute a SQL query and log the task description.
         """
