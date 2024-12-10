@@ -14,11 +14,11 @@ def db_conn():
     """Fixture to set up the database connection and tables for testing."""
     # Connect to test database
     db.create_database()
-    db.connect_to_db()
+    db.db_handler.connect()
     db.create_tables()
-    yield db.conn
+    yield db.db_handler.conn
     # Teardown: Close connection and clean up
-    db.conn.close()
+    db.db_handler.close()
 
 # Test connection function
 def test_connect_to_db(db_conn):

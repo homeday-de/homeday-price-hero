@@ -22,7 +22,7 @@ class TestFixtures:
     @pytest.fixture
     def postgres_to_s3(self, s3_connector):
         """Fixture to initialize PostgresToS3 with mock dependencies."""
-        with patch("src.pipelines.extract_and_load.Database.connect_to_db") as mock_connect_to_db:
+        with patch("src.db.database.DatabaseHandler.connect") as mock_connect_to_db:
             mock_connect_to_db.return_value = MagicMock()  # Mock database connection
             # Mock the connection and cursor
             mock_conn = MagicMock()
@@ -146,11 +146,9 @@ class TestAPIToPostgres(TestFixtures):
     async def test_run(self, mock_api_to_postgres):
         """Test the run method."""
         mock_api_to_postgres.api = MagicMock()
-        mock_api_to_postgres.create_database = MagicMock()
-        mock_api_to_postgres.create_tables = MagicMock()
         mock_api_to_postgres.ensure_geoid_cache = AsyncMock()
         mock_api_to_postgres.fetch_price = AsyncMock()
-        mock_api_to_postgres.close_db_connection = MagicMock()
+        mock_api_to_postgres.db_handler.close = MagicMock()
 
         geo_indices = {"zip_codes": [{"name": "12345"}], "cities": [{"name": "Berlin"}]}
         price_date = "2024-01-01"
@@ -158,11 +156,9 @@ class TestAPIToPostgres(TestFixtures):
         await mock_api_to_postgres.run(geo_indices, price_date)
 
         # Assertions
-        mock_api_to_postgres.create_database.assert_called_once()
-        mock_api_to_postgres.create_tables.assert_called_once()
         mock_api_to_postgres.ensure_geoid_cache.assert_awaited_once_with(geo_indices)
         mock_api_to_postgres.fetch_price.assert_awaited_once_with(price_date)
-        mock_api_to_postgres.close_db_connection.assert_called_once()
+        mock_api_to_postgres.db_handler.close.assert_called_once()
 
 
     @pytest.mark.asyncio
