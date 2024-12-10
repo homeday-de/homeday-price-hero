@@ -94,13 +94,11 @@ class APIToPostgres(Database):
             self.api = self.api_client()
         try:
             self.logger.info("Starting extraction pipeline...")
-            self.create_database()
-            self.create_tables()
             await self.ensure_geoid_cache(geo_indices)
             await self.fetch_price(price_date)
             self.logger.info("Prices info has been cached")
         finally:
-            self.close_db_connection()
+            self.db_handler.close()
             self.logger.info("Pipeline execution completed.")
 
     async def fetch_price(self, price_date: str):
@@ -157,10 +155,10 @@ class PostgresToS3(Database):
         :param table_name: The name of the table to dump.
         :return: A list of dictionaries representing the table rows.
         """
-        if not self.conn:
-            self.connect_to_db()
+        if not self.db_handler.conn:
+            self.db_handler.connect()
         try:
-            with self.conn.cursor() as cur:
+            with self.db_handler.conn.cursor() as cur:
                 cur.execute(f"SELECT * FROM {table_name}")
                 columns = [desc[0] for desc in cur.description]
                 rows = cur.fetchall()
