@@ -19,13 +19,14 @@ class AVIVRawToHDPrices(Database):
             SELECT DISTINCT price_date
             FROM prices_all
         ) price_dates
+        ON CONFLICT (name) DO NOTHING
     """
 
     SQL_REPORT_HEADERS = """
         WITH distinct_prices AS (
             -- Extract distinct price_date and map to year-quarter format
             SELECT DISTINCT 
-                price_date::date AS price_date,
+                DATE_TRUNC('quarter', price_date::date)::date AS price_date,
                 CONCAT(
                     EXTRACT(YEAR FROM price_date::date), 'Q', EXTRACT(QUARTER FROM price_date::date)
                 ) AS quarter_name
@@ -74,6 +75,7 @@ class AVIVRawToHDPrices(Database):
             1 AS source, -- Default value, adjust as needed
             er.report_batch_id
         FROM expanded_rows er
+        ON CONFLICT (id) DO NOTHING
     """
 
     SQL_LOCATION_PRICES = """
@@ -81,7 +83,7 @@ class AVIVRawToHDPrices(Database):
             -- Extract prices based on property_type from prices_all
             SELECT 
                 pa.aviv_geo_id,
-                pa.price_date::date,
+                DATE_TRUNC('quarter', price_date::date)::date AS price_date,
                 daterange(
                     price_date::date, (price_date::date + make_interval(months => 3))::date
                 ) AS interval,
@@ -150,6 +152,7 @@ class AVIVRawToHDPrices(Database):
             OR
             -- Map `cities` to valid `hd_geo_id`
             (pd.header_name = 'cities' AND gd.hd_geo_id != 'no_hd_geo_id_applicable')
+        ON CONFLICT (id) DO NOTHING
     """
 
     def __init__(self, config: Dynaconf, test=False):
@@ -162,14 +165,16 @@ class AVIVRawToHDPrices(Database):
         """
         try:
             self.logger.info("Starting transformation pipeline...")
-            self.execute_query("Transforming data to report batches...", self.SQL_REPORT_BATCHES)
-            self.execute_query("Transforming data to report headers...", self.SQL_REPORT_HEADERS)
-            self.execute_query("Transforming data to location prices...", self.SQL_LOCATION_PRICES)
+            self.execute_transform_query("Transforming data to report batches...", self.SQL_REPORT_BATCHES)
+            self.execute_transform_query("Transforming data to report headers...", self.SQL_REPORT_HEADERS)
+            self.execute_transform_query("Transforming data to location prices...", self.SQL_LOCATION_PRICES)
+            last_value = self.get_last_value_sequence()
+            update_report_batch_id(file_path="config/.secrets.json", latest_value=last_value+1)
         finally:
             self.db_handler.close()
             self.logger.info("Pipeline execution completed.")
 
-    def execute_query(self, task_description, query):
+    def execute_transform_query(self, task_description, query):
         """
         Execute a SQL query and log the task description.
         """
