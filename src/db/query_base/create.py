@@ -23,25 +23,8 @@ create_geo_cache = """
     )
 """
 
-insert_geo_cache = """
-    INSERT INTO geo_cache (
-        geo_index, hd_geo_id, aviv_geo_id, type_key, coordinates, match_name, confidence_score
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-    ON CONFLICT (geo_index, hd_geo_id) DO NOTHING
-"""
+extensions = 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp"'
 
-insert_prices_all = """
-    INSERT INTO prices_all (
-        aviv_geo_id, price_date, transaction_type, house_price, apartment_price, hybrid_price
-    ) VALUES (%s, %s, %s, %s, %s, %s)
-    ON CONFLICT (aviv_geo_id, price_date)
-    DO UPDATE SET
-        transaction_type = COALESCE(EXCLUDED.transaction_type, prices_all.transaction_type),
-        house_price = EXCLUDED.house_price,
-        apartment_price = EXCLUDED.apartment_price,
-        hybrid_price = EXCLUDED.hybrid_price
-    WHERE prices_all.transaction_type IS NULL
-"""
 
 create_report_batches = {
     "report_batches": """
@@ -55,8 +38,14 @@ create_report_batches = {
             CONSTRAINT report_batches_pkey PRIMARY KEY (id)
         )
     """,
-    "index_created_at": "CREATE INDEX IF NOT EXISTS index_report_batches_on_created_at ON report_batches USING btree (created_at);",
-    "index_name": "CREATE UNIQUE INDEX IF NOT EXISTS index_report_batches_on_name ON report_batches USING btree (name);"
+    "index_created_at": """
+        CREATE INDEX IF NOT EXISTS index_report_batches_on_created_at 
+        ON report_batches USING btree (created_at)
+    """,
+    "index_name": """
+        CREATE UNIQUE INDEX IF NOT EXISTS index_report_batches_on_name 
+        ON report_batches USING btree (name)
+    """
 }
 
 create_report_headers = {
@@ -78,10 +67,22 @@ create_report_headers = {
             CONSTRAINT report_headers_pkey PRIMARY KEY (id)
         )
     """,
-    "index_created_at": "CREATE INDEX IF NOT EXISTS index_report_headers_on_created_at ON report_headers USING btree (created_at);",
-    "index_name": "CREATE INDEX IF NOT EXISTS index_report_headers_on_name ON report_headers USING btree (name);",
-    "index_report_batch_id": "CREATE INDEX IF NOT EXISTS index_report_headers_on_report_batch_id ON report_headers USING btree (report_batch_id);",
-    "index_type_and_location_fields": "CREATE INDEX IF NOT EXISTS index_report_headers_on_type_and_location_fields ON report_headers USING btree (active, name, country, city, marketing_type, date);"
+    "index_created_at": """
+        CREATE INDEX IF NOT EXISTS index_report_headers_on_created_at 
+        ON report_headers USING btree (created_at)
+    """,
+    "index_name": """
+        CREATE INDEX IF NOT EXISTS index_report_headers_on_name 
+        ON report_headers USING btree (name)
+    """,
+    "index_report_batch_id": """
+        CREATE INDEX IF NOT EXISTS index_report_headers_on_report_batch_id 
+        ON report_headers USING btree (report_batch_id)
+    """,
+    "index_type_and_location_fields": """
+        CREATE INDEX IF NOT EXISTS index_report_headers_on_type_and_location_fields 
+        ON report_headers USING btree (active, name, country, city, marketing_type, date)
+    """
 }
 
 create_location_prices = {
@@ -111,14 +112,33 @@ create_location_prices = {
             CONSTRAINT location_prices_pkey PRIMARY KEY (id)
         )
     """,
-    "index_city_id": "CREATE INDEX IF NOT EXISTS index_location_prices_on_city_id ON location_prices USING btree (city_id);",
-    "index_country": "CREATE INDEX IF NOT EXISTS index_location_prices_on_country ON location_prices USING btree (country);",
-    "index_country_and_city_and_district": "CREATE INDEX IF NOT EXISTS index_location_prices_on_country_and_city_and_district ON location_prices USING btree (country, city, district);",
-    "index_report_header_id": "CREATE INDEX IF NOT EXISTS index_location_prices_on_report_header_id ON location_prices USING btree (report_header_id);"
+    "index_city_id": """
+        CREATE INDEX IF NOT EXISTS index_location_prices_on_city_id 
+        ON location_prices USING btree (city_id)
+    """,
+    "index_country": """
+        CREATE INDEX IF NOT EXISTS index_location_prices_on_country 
+        ON location_prices USING btree (country)
+    """,
+    "index_country_and_city_and_district": """
+        CREATE INDEX IF NOT EXISTS index_location_prices_on_country_and_city_and_district 
+        ON location_prices USING btree (country, city, district)
+    """,
+    "index_report_header_id": """
+        CREATE INDEX IF NOT EXISTS index_location_prices_on_report_header_id 
+        ON location_prices USING btree (report_header_id)
+    """
 }
 
-extensions = 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
 
-create_ = {'geo_cache': create_geo_cache, 'prices_all': create_prices_all, 'extensions': extensions}
-insert_ = {'geo_cache': insert_geo_cache, 'prices_all': insert_prices_all}
-create_price_map_schema = {"report_batches": create_report_batches, "report_headers": create_report_headers, "location_prices": create_location_prices}
+create_source_schema = {
+    'geo_cache': create_geo_cache, 
+    'prices_all': create_prices_all, 
+    'extensions': extensions
+}
+
+create_price_map_schema = {
+    "report_batches": create_report_batches, 
+    "report_headers": create_report_headers, 
+    "location_prices": create_location_prices
+}

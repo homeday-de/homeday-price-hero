@@ -5,7 +5,9 @@ from typing import List, Dict, Union
 from psycopg import sql
 from dynaconf import Dynaconf
 from src.models import GeocodingResponse, PriceResponse
-from src.db.schema import create_, insert_, create_price_map_schema
+from src.db.query_base import CREATE_DB, CHECK_DB_EXISTENCE, RESET_SEQUENCE
+from src.db.query_base import create_source_schema, create_price_map_schema, insert_source
+from src.db.query_base import REFLECT_AVIVID, VALIDATE_PRICE_GEN, GET_SEQUENCE_VALUE
 
 
 class DatabaseHandler:
@@ -66,9 +68,9 @@ class Database:
             ) as conn:
                 conn.autocommit = True
                 with conn.cursor() as cur:
-                    cur.execute("SELECT 1 FROM pg_database WHERE datname = %s;", (self.db_handler.db_config.database,))
+                    cur.execute(CHECK_DB_EXISTENCE, (self.db_handler.db_config.database,))
                     if not cur.fetchone():
-                        cur.execute(f"CREATE DATABASE {self.db_handler.db_config.database};")
+                        cur.execute(CREATE_DB, (self.db_handler.db_config.database,))
                         self.logger.info(f"Database '{self.db_handler.db_config.database}' created successfully.")
                     else:
                         self.logger.info(f"Database '{self.db_handler.db_config.database}' already exists.")
@@ -80,10 +82,10 @@ class Database:
         """Create required tables in the database if they do not exist."""
         self.db_handler.connect()
         with self.db_handler.conn.cursor() as cur:
-            self.execute_nested_query_structure(cur, create_)
+            self.execute_nested_query_structure(cur, create_source_schema)
             self.execute_nested_query_structure(cur, create_price_map_schema)
             cur.execute(
-                sql.SQL("ALTER SEQUENCE {} RESTART WITH {}").format(
+                sql.SQL(RESET_SEQUENCE).format(
                     sql.Identifier('report_batches_id_seq'),
                     sql.Literal(self.db_params.report_batch_id)
                 )
@@ -109,16 +111,13 @@ class Database:
 
     def get_cached_geoid(self, geo_index: List[str]):
         """Retrieve cached geo_id for a given zip code."""
-        query = """
-            SELECT aviv_geo_id FROM geo_cache 
-            WHERE geo_index IN (%s)
-        """ % ', '.join('%s' for _ in geo_index)
+        query = REFLECT_AVIVID % ', '.join('%s' for _ in geo_index)
         result = self.db_handler.execute_query(query, geo_index)
         return [row[0] for row in result] if result else None
 
     def cache_geo_response(self, geocoding_response: GeocodingResponse):
         """Cache geocoding response data in the geo_cache table."""
-        query = insert_['geo_cache']
+        query = insert_source['geo_cache']
         geocoding_data = (
             geocoding_response.geo_index,
             geocoding_response.hd_geo_id,
@@ -133,21 +132,14 @@ class Database:
 
     def get_validated_price(self, price_date: str):
         """Retrieve validated price data."""
-        query = f"""
-            SELECT aviv_geo_id FROM geo_cache
-            WHERE aviv_geo_id != 'no_aviv_id_available'
-            AND aviv_geo_id NOT IN (
-                SELECT aviv_geo_id FROM prices_all 
-                WHERE price_date = '{price_date}' AND transaction_type IS NOT NULL
-            )
-        """
+        query = sql.SQL(VALIDATE_PRICE_GEN).format(sql.Literal(price_date))
         result = self.db_handler.execute_query(query)
         return [row[0] for row in result] if result else None
 
     def store_price_in_db(self, price_response: PriceResponse):
         """Store price response data in the prices_all table."""
         if price_response:
-            query = insert_['prices_all']
+            query = insert_source['prices_all']
             price_data = (
                 price_response.place_id,
                 price_response.price_date,
@@ -161,6 +153,6 @@ class Database:
 
     def get_last_value_sequence(self):
         """Retrieve the last value of a sequence."""
-        query = "SELECT last_value FROM report_batches_id_seq;"
+        query = sql.SQL(GET_SEQUENCE_VALUE).format(sql.Identifier('report_batches_id_seq'))
         result = self.db_handler.execute_query(query)
         return result[0][0] if result else None
