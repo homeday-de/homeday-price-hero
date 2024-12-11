@@ -102,7 +102,8 @@ async def run_etl_process(
     price_quarter: str, 
     should_transform: bool, 
     is_test: bool, 
-    save_local: bool
+    save_local: bool,
+    is_production: bool
 ):
     """
     Execute the ETL process based on the provided parameters.
@@ -111,7 +112,7 @@ async def run_etl_process(
     configure_secrets(secret_manager, action="get")
     from config import settings
 
-    if process == "pricegen":
+    if process == "etl":
         click.echo("Run etl to fetch price from aviv and transform to hd prices schema")
         if not price_year or not validate_year(None, None, price_year):
             price_year = click.prompt('Enter a valid year (e.g., 2024):')
@@ -134,7 +135,8 @@ async def run_etl_process(
     else:
         click.echo("Upload transformed tables to hd prices db")
         local_conf = settings.db.dev if not is_test else settings.db.test
-        rds_conf = settings.aws.rds_config.prices_staging
+        rds_conf = settings.aws.rds_config.prices_staging if not is_production \
+            else settings.aws.rds_config.prices_production
         price_updater = PricesUpdater(local_conf, rds_conf)
         tables = [
             "report_batches"
@@ -148,16 +150,21 @@ async def run_etl_process(
 @click.option(
     "--process",
     prompt="Which process is going to continue?",
-    type=click.Choice(["pricegen", "upload2hdrds"]), 
+    type=click.Choice(["etl", "sync"]), 
     required=True,
-    help="Specify the process to execute."
+    help="""
+    Specify the process to execute.
+    etl: Fetch geo info and prices from AVIV API then perform transformation, 
+    sync: Update transformed data to HD Prices staging/production DB
+    """
 )
 @click.option('--price_year', help='Year for AVIV price API query.')
 @click.option('--price_quarter', type=click.Choice(["Q1", "Q2", "Q3", "Q4"]), help='Quarter for AVIV price API query.')
 @click.option('--transform', is_flag=True, default=True, help='Run data transformation to HD prices schema.')
 @click.option('--test', is_flag=True, default=True, help='Run in test mode.')
 @click.option('--local', is_flag=True, default=True, help='Save source data tables locally.')
-async def main(process, price_year, price_quarter, transform, test, local):
+@click.option('--sync_prod', is_flag=True, default=False, help='Sync prices data table to HD Prices production DB')
+async def main(process, price_year, price_quarter, transform, test, local, sync_prod):
     """
     Entry point for the ETL script.
     """
@@ -167,7 +174,8 @@ async def main(process, price_year, price_quarter, transform, test, local):
         price_quarter=price_quarter,
         should_transform=transform,
         is_test=test,
-        save_local=local
+        save_local=local,
+        is_production=sync_prod
     )
 
 if __name__ == "__main__":
