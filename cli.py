@@ -115,11 +115,11 @@ async def run_etl_process(
     if process == "etl":
         click.echo("Run etl to fetch price from aviv and transform to hd prices schema")
         if not price_year or not validate_year(None, None, price_year):
-            price_year = click.prompt('Enter a valid year (e.g., 2024):')
+            price_year = click.prompt('Enter a valid year (e.g., 2024)')
 
         if not price_quarter:
             price_quarter = click.prompt(
-                'Enter a quarter (e.g., Q1):', 
+                'Enter a quarter (e.g., Q1)', 
                 type=click.Choice(["Q1", "Q2", "Q3", "Q4"])
             )
 
@@ -160,10 +160,10 @@ async def run_etl_process(
 )
 @click.option('--price_year', help='Year for AVIV price API query.')
 @click.option('--price_quarter', type=click.Choice(["Q1", "Q2", "Q3", "Q4"]), help='Quarter for AVIV price API query.')
-@click.option('--transform', is_flag=True, default=True, help='Run data transformation to HD prices schema.')
-@click.option('--test', is_flag=True, default=True, help='Run in test mode.')
-@click.option('--local', is_flag=True, default=True, help='Save source data tables locally.')
-@click.option('--sync_prod', is_flag=True, default=False, help='Sync prices data table to HD Prices production DB')
+@click.option('--transform', default=True, help='Run data transformation to HD prices schema.')
+@click.option('--test', is_flag=True, help='Run in test mode.')
+@click.option('--local', is_flag=True, help='Save source data tables locally.')
+@click.option('--sync_prod', is_flag=True, help='Sync prices data table to HD Prices production DB')
 async def main(process, price_year, price_quarter, transform, test, local, sync_prod):
     """
     Entry point for the ETL script.
