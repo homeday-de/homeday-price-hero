@@ -16,6 +16,8 @@ services:
       context: .
       target: prod
     container_name: price_hero
+    environment:
+      - SECRET_PATH=config/.secrets.json
     depends_on:
       - price_db
     volumes:

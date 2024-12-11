@@ -1,6 +1,8 @@
+import os
 import logging
 from dynaconf import Dynaconf
 from src.db import Database
+from src.db.query_base import insert_price_map
 from src.lib import update_report_batch_id
 
 
@@ -25,7 +27,8 @@ class AVIVRawToHDPrices(Database):
             last_value = self.get_last_value_sequence()
             if not getattr(self, "test", False):
                 self.logger.info("Update report batch ID for next time to re-run")
-                update_report_batch_id(file_path="config/.secrets.json", latest_value=last_value+1)
+                secret_path = os.path.join(os.getcwd(), os.getenv("SECRET_PATH"))
+                update_report_batch_id(file_path=secret_path, latest_value=last_value+1)
         finally:
             self.db_handler.close()
             self.logger.info("Pipeline execution completed.")

@@ -66,7 +66,7 @@ class S3Connector:
 class SecretManager:
 
     region_name = "eu-central-1"
-    secret_path = "config/.secrets.json"
+    secret_path = os.getenv("SECRET_PATH", 'config/.secrets.json')
 
     def get_secret(self, secret_name):
 
