@@ -8,7 +8,7 @@ VALIDATE_PRICE_GEN = """
             WHERE aviv_geo_id != 'no_aviv_id_available'
             AND aviv_geo_id NOT IN (
                 SELECT aviv_geo_id FROM prices_all 
-                WHERE price_date = '{}' AND transaction_type IS NOT NULL
+                WHERE price_date = {} AND transaction_type IS NOT NULL
             )
         """
 

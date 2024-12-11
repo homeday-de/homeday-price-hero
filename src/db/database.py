@@ -68,9 +68,9 @@ class Database:
             ) as conn:
                 conn.autocommit = True
                 with conn.cursor() as cur:
-                    cur.execute(CHECK_DB_EXISTENCE, (self.db_handler.db_config.database,))
+                    cur.execute(sql.SQL(CHECK_DB_EXISTENCE).format(sql.Literal(self.db_handler.db_config.database)))
                     if not cur.fetchone():
-                        cur.execute(CREATE_DB, (self.db_handler.db_config.database,))
+                        cur.execute(sql.SQL(CREATE_DB).format(sql.Identifier(self.db_handler.db_config.database)))
                         self.logger.info(f"Database '{self.db_handler.db_config.database}' created successfully.")
                     else:
                         self.logger.info(f"Database '{self.db_handler.db_config.database}' already exists.")
