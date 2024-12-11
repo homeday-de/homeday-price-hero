@@ -1,6 +1,7 @@
 import logging
 from dynaconf import Dynaconf
 from src.db import Database
+from src.lib import update_report_batch_id
 
 
 class AVIVRawToHDPrices(Database):
@@ -28,7 +29,7 @@ class AVIVRawToHDPrices(Database):
             SELECT DISTINCT 
                 DATE_TRUNC('quarter', price_date::date)::date AS price_date,
                 CONCAT(
-                    EXTRACT(YEAR FROM price_date::date), 'Q', EXTRACT(QUARTER FROM price_date::date)
+                    EXTRACT(YEAR FROM price_date::date)::TEXT, 'Q', EXTRACT(QUARTER FROM price_date::date)::TEXT
                 ) AS quarter_name
             FROM prices_all
         ),
@@ -158,7 +159,6 @@ class AVIVRawToHDPrices(Database):
     def __init__(self, config: Dynaconf, test=False):
         super().__init__(config=config, test=test)
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.test = test
 
     def run(self):
         """
@@ -170,7 +170,7 @@ class AVIVRawToHDPrices(Database):
             self.execute_transform_query("Transforming data to report headers...", self.SQL_REPORT_HEADERS)
             self.execute_transform_query("Transforming data to location prices...", self.SQL_LOCATION_PRICES)
             last_value = self.get_last_value_sequence()
-            if not self.test:
+            if not getattr(self, "test", False):
                 self.logger.info("Update report batch ID for next time to re-run")
                 update_report_batch_id(file_path="config/.secrets.json", latest_value=last_value+1)
         finally:
