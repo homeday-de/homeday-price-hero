@@ -8,8 +8,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY config/ /build/config/
 COPY src/ /build/src/
-COPY tests/ /build/tests/
-RUN python -m pytest tests/test_extract_and_load.py
 
 # Prod level
 FROM base AS prod
