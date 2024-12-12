@@ -138,18 +138,18 @@ class PostgresToS3(Database):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.s3_connector = s3_connector
 
-    def run(self, table_name, transformed=False, local=True):
+    def run(self, table_name, local=True):
         # Example configuration and usage
         quarter = datetime.date.today().strftime("%Y%m")  # e.g., "2024Q3"
-        subfolder = "source_dump" if not transformed else "transformed"
-        s3_key = f"{subfolder}/{table_name}_{quarter}.json"  # Desired S3 key
+        s3_key = f"{table_name}_{quarter}.json"  # Desired S3 key
 
-        if not local:
-            # Dump table and upload to S3
-            self.dump_and_upload(table_name, s3_key)
-        else:
+        if local or self.db_handler.db_config.database == "test_db":
             data = self.dump_table_to_json(table_name)
             self.save_json_to_file(data, file_path=f"data/{table_name}.json")
+        else:
+            # Dump table and upload to S3
+            self.logger.info(self.db_handler.db_config.database)
+            self.dump_and_upload(table_name, s3_key)
 
     def dump_table_to_json(self, table_name: str) -> List[Dict]:
         """
