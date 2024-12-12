@@ -106,6 +106,7 @@ class TransformedPricesHealthCheck(Database):
             FROM report_headers rh
             JOIN report_batches rb ON rh.report_batch_id = rb.id
             WHERE rh.date != DATE_TRUNC('quarter', rb.started_at)
+                AND rh.active = TRUE
             GROUP BY rh.report_batch_id
             HAVING COUNT(*) > 4
         """
