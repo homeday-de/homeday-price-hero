@@ -28,7 +28,7 @@ SQL_REPORT_BATCHES = """
         INSERT INTO report_batches (name, started_at, completed_at, created_at, updated_at)
         SELECT
             CONCAT(
-                EXTRACT(YEAR FROM price_date::date)::TEXT, 'Q', EXTRACT(QUARTER FROM price_date::date)::TEXT
+                'AVIV-', EXTRACT(YEAR FROM price_date::date)::TEXT, 'Q', EXTRACT(QUARTER FROM price_date::date)::TEXT
             ) AS name,
             CURRENT_TIMESTAMP AS started_at,
             CURRENT_TIMESTAMP AS completed_at,
@@ -48,7 +48,7 @@ SQL_REPORT_HEADERS = """
         SELECT DISTINCT 
             DATE_TRUNC('quarter', price_date::date)::date AS price_date,
             CONCAT(
-                EXTRACT(YEAR FROM price_date::date)::TEXT, 'Q', EXTRACT(QUARTER FROM price_date::date)::TEXT
+                'AVIV-', EXTRACT(YEAR FROM price_date::date)::TEXT, 'Q', EXTRACT(QUARTER FROM price_date::date)::TEXT
             ) AS quarter_name
         FROM prices_all
     ),
@@ -116,7 +116,7 @@ SQL_LOCATION_PRICES = """
             pa.aviv_geo_id,
             DATE_TRUNC('quarter', price_date::date)::date AS price_date,
             daterange(
-                price_date::date, (price_date::date + make_interval(months => 3))::date
+                (price_date::date - make_interval(months => 3))::date, price_date::date
             ) AS interval,
             CASE
                 WHEN rh.property_type = 'apartment' THEN 
@@ -208,7 +208,7 @@ SQL_LOCATION_PRICES = """
         pd.score,
         pd.interval
     FROM price_data pd
-    LEFT JOIN geo_data gd
+    inner JOIN geo_data gd
     ON pd.aviv_geo_id = gd.aviv_geo_id
     WHERE 
         -- Map `zip_codes` to `hd_geo_id = 'no_hd_geo_id_applicable'`
