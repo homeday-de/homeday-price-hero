@@ -1,18 +1,12 @@
 # Base image
-FROM python:3.10-slim AS base
+FROM python:3.10-slim
 
-# Dev level
-FROM base AS dev
-WORKDIR /build
-COPY requirements.txt .
+WORKDIR /app
+COPY ./requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
-COPY config/ /build/config/
-COPY src/ /build/src/
 
-# Prod level
-FROM base AS prod
-WORKDIR /build
-COPY --from=dev /build /build/
-RUN pip install --no-cache-dir -r requirements.txt
-COPY cli.py /build/cli.py
+COPY ./config/ /app/config/
+COPY ./src/ /app/src/
+COPY ./cli.py /app/cli.py
+
 ENTRYPOINT ["python", "cli.py"]

@@ -14,7 +14,6 @@ services:
   price_hero:
     build:
       context: .
-      target: prod
     container_name: price_hero
     environment:
       - SECRET_PATH=config/.secrets.json
@@ -22,10 +21,10 @@ services:
       - price_db
     volumes:
       - $HOME/.aws/credentials:/root/.aws/credentials:ro
-      - .:/build
+      - .:/app
     stdin_open: true
     tty: true
-    entrypoint: ["python", "cli.py"]  # Define the command-line tool
+    entrypoint: ["python", "cli.py"]
 
 volumes:
   price_db:
