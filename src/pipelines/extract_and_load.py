@@ -103,10 +103,11 @@ class APIToPostgres(Database):
 
     async def fetch_price(self, price_date: str):
         cached_geoid = self.get_validated_price(price_date)
-        await self.process_data_in_batch(
-            self.PRICE_URL, cached_geoid, self.api.fetch_price_data, self.store_price_in_db,
-            self.api.batch_size, self.api.rate_limit_interval, price_date=price_date
-        )
+        if cached_geoid:
+            await self.process_data_in_batch(
+                self.PRICE_URL, cached_geoid, self.api.fetch_price_data, self.store_price_in_db,
+                self.api.batch_size, self.api.rate_limit_interval, price_date=price_date
+            )
     
     async def ensure_geoid_cache(self, geo_indices: Dict):
         """Retrieve or fetch and cache geo_id for a given list of zip codes."""
@@ -116,8 +117,9 @@ class APIToPostgres(Database):
             cached_geoid = self.get_cached_geoid([obj['name']])
             if not cached_geoid:
                 not_cached_yet.append(obj)
-        self.logger.info(f"Found {len(not_cached_yet)} geo_indices haven't been cached yet")
-        await self.fetch_geo(not_cached_yet)
+        if not_cached_yet:
+            self.logger.info(f"Found {len(not_cached_yet)} geo_indices haven't been cached yet")
+            await self.fetch_geo(not_cached_yet)
 
     async def fetch_geo(self, index_group: List[Dict]):
         await self.process_data_in_batch(
