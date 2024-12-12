@@ -4,10 +4,9 @@
 
 ## Features
 
-- **Data Pipeline**: Extract, cache, validate, and transform data into the Homeday Prices Database schema.
-- **Cloud Backup**: Backup source data to cloud storage.
-- **Database Synchronization**: Sync data with the Homeday Prices Database on RDS.
-- **Quarterly Processing**: (Manual) Ensures up-to-date and accurate price estimates.
+- **Extraction Pipeline**: Fetch, extract, cache, validate data from AVIV APIs into development database which has the same schema with Homeday Prices Database.
+- **Cloud/On-prem Backup**: Backup source data to S3 or on-prem.
+- **Database Synchronization**: Perform data transformation and sync data with the Homeday Prices Database on RDS.
 
 ## Getting Started (For CLI Users)
 
@@ -31,36 +30,52 @@
    git clone https://github.com/homeday-de/homeday-price-hero.git
    cd homeday-price-hero
    ```
-2. Start the services:
+2. Enable execute to the script
    ```bash
-   docker-compose up --build -d
+   chmod +x price_hero.sh
+   ```
+3. Start the services:
+   ```bash
+   ./price_hero start
+   ```
+4. To get more info of the command line tool
+   ```bash
+   ./price_hero help
    ```
 
 ### Usage
 
-1. **Run ETL Pipeline**:
+Before start, ensure **AVIV VPN (Cloudflare)** is enabled.
+
+1. **If you prefer to run in test mode, add `--test` flag**:
    ```bash
-   docker-compose exec price_hero python cli.py
+   ./price_hero run --test
    ```
-   - Type `etl`, year, and quarter at the prompts. Ensure AVIV VPN (Cloudflare) is enabled:
+   **Else**:
+   ```bash
+   ./price_hero run
+   ```
+
+2. **Run price extraction and ingestion pipeline**:
+   - Type `fetch`, year, and quarter at the prompts.
      ```bash
-     Which process is going to continue? (etl, sync): etl
+     Which process is going to continue? (fetch, sync): fetch
      Enter a valid year (e.g., 2024): 2024
      Enter a quarter (e.g., Q1, Q2, Q3, Q4): Q4
      ```
 
-2. **Sync Data with RDS**:
+3. **Run data transformation and sync data with RDS**:
    - Disconnect from Cloudflare VPN.
    - Connect to Homeday VPN.
    - Run synchronization:
      ```bash
-     Which process is going to continue? (etl, sync): sync
+     Which process is going to continue? (fetch, sync): sync
      ```
 
-3. **Clean Data**:
+4. **Clean Data**:
    Remove containers and volumes when finished:
    ```bash
-   docker-compose down -v --rmi all --remove-orphans
+   ./price_hero clean
    ```
 
 ## Contributing
@@ -83,6 +98,8 @@
 
 ## Troubleshooting
 
-1. **ETL Availability**:
+1. **API Availability**:
    - APIs (dev and preview environments) are accessible between **6 AM UTC and 7 PM UTC, Monday to Friday**.
    - Network issues may result in **504 errors**. Re-execution is safe, as the caching feature prevents redundant requests.
+2. For the other questions of GeocodingAPI, please contact `#aviv_bureau_of_geographic_affairs` channel on Slack.
+3. 
