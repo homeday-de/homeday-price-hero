@@ -84,12 +84,13 @@ class Database:
         with self.db_handler.conn.cursor() as cur:
             self.execute_nested_query_structure(cur, create_source_schema)
             self.execute_nested_query_structure(cur, create_price_map_schema)
-            cur.execute(
-                sql.SQL(RESET_SEQUENCE).format(
-                    sql.Identifier('report_batches_id_seq'),
-                    sql.Literal(self.db_params.report_batch_id)
+            if not self.db_handler.db_config.database == 'test_db':
+                cur.execute(
+                    sql.SQL(RESET_SEQUENCE).format(
+                        sql.Identifier('report_batches_id_seq'),
+                        sql.Literal(self.db_params.report_batch_id)
+                    )
                 )
-            )
         self.db_handler.commit()
         self.logger.info("Tables created successfully.")
 
