@@ -102,4 +102,3 @@ Before start, ensure **AVIV VPN (Cloudflare)** is enabled.
    - APIs (dev and preview environments) are accessible between **6 AM UTC and 7 PM UTC, Monday to Friday**.
    - Network issues may result in **504 errors**. Re-execution is safe, as the caching feature prevents redundant requests.
 2. For the other questions of GeocodingAPI, please contact `#aviv_bureau_of_geographic_affairs` channel on Slack.
-3. 
