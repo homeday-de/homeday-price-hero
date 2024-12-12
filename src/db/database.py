@@ -49,6 +49,41 @@ class DatabaseHandler:
         if self.conn:
             self.conn.commit()
 
+    def fetch_column_names(self, table_name):
+        """Retrieves column names of a table."""
+        query = """
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = %s
+        ORDER BY ordinal_position;
+        """
+        if not self.conn:
+            self.connect()
+        with self.conn.cursor() as cur:
+            cur.execute(query, (table_name,))
+            return [row[0] for row in cur.fetchall()]
+
+    def fetch_chunked_data(self, table_name, offset, chunk_size):
+        """Fetches a chunk of data from a table."""
+        query = f"SELECT * FROM {table_name} OFFSET %s LIMIT %s;"
+        if not self.conn:
+            self.connect()
+        with self.conn.cursor() as cur:
+            cur.execute(query, (offset, chunk_size))
+            return cur.fetchall()
+
+    def append_data(self, table_name, data, column_names):
+        """Appends data to a table."""
+        placeholders = ', '.join(['%s'] * len(column_names))
+        columns = ', '.join(column_names)
+        query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders}) ON CONFLICT DO NOTHING;"
+        if not self.conn:
+            self.connect()
+
+        with self.conn.cursor() as cur:
+            for row in data:
+                cur.execute(query, row)
+            self.connection.commit()
 
 class Database:
     def __init__(self, config: Dynaconf, test=False):
