@@ -25,7 +25,7 @@ class AVIVRawToHDPrices(Database):
             self.execute_transform_query("Transforming data to report headers...", self.SQL_REPORT_HEADERS)
             self.execute_transform_query("Transforming data to location prices...", self.SQL_LOCATION_PRICES)
             last_value = self.get_last_value_sequence()
-            if not getattr(self, "test", False):
+            if self.db_handler.db_config.database != "test_db":
                 self.logger.info("Update report batch ID for next time to re-run")
                 secret_path = os.path.join(os.getcwd(), os.getenv("SECRET_PATH"))
                 update_report_batch_id(file_path=secret_path, latest_value=last_value+1)
@@ -106,6 +106,7 @@ class TransformedPricesHealthCheck(Database):
             FROM report_headers rh
             JOIN report_batches rb ON rh.report_batch_id = rb.id
             WHERE rh.date != DATE_TRUNC('quarter', rb.started_at)
+                AND rh.active = TRUE
             GROUP BY rh.report_batch_id
             HAVING COUNT(*) > 4
         """

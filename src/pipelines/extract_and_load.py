@@ -103,10 +103,11 @@ class APIToPostgres(Database):
 
     async def fetch_price(self, price_date: str):
         cached_geoid = self.get_validated_price(price_date)
-        await self.process_data_in_batch(
-            self.PRICE_URL, cached_geoid, self.api.fetch_price_data, self.store_price_in_db,
-            self.api.batch_size, self.api.rate_limit_interval, price_date=price_date
-        )
+        if cached_geoid:
+            await self.process_data_in_batch(
+                self.PRICE_URL, cached_geoid, self.api.fetch_price_data, self.store_price_in_db,
+                self.api.batch_size, self.api.rate_limit_interval, price_date=price_date
+            )
     
     async def ensure_geoid_cache(self, geo_indices: Dict):
         """Retrieve or fetch and cache geo_id for a given list of zip codes."""
@@ -116,8 +117,9 @@ class APIToPostgres(Database):
             cached_geoid = self.get_cached_geoid([obj['name']])
             if not cached_geoid:
                 not_cached_yet.append(obj)
-        self.logger.info(f"Found {len(not_cached_yet)} geo_indices haven't been cached yet")
-        await self.fetch_geo(not_cached_yet)
+        if not_cached_yet:
+            self.logger.info(f"Found {len(not_cached_yet)} geo_indices haven't been cached yet")
+            await self.fetch_geo(not_cached_yet)
 
     async def fetch_geo(self, index_group: List[Dict]):
         await self.process_data_in_batch(
@@ -136,18 +138,18 @@ class PostgresToS3(Database):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.s3_connector = s3_connector
 
-    def run(self, table_name, transformed=False, local=True):
+    def run(self, table_name, local=True):
         # Example configuration and usage
         quarter = datetime.date.today().strftime("%Y%m")  # e.g., "2024Q3"
-        subfolder = "source_dump" if not transformed else "transformed"
-        s3_key = f"{subfolder}/{table_name}_{quarter}.json"  # Desired S3 key
+        s3_key = f"{table_name}_{quarter}.json"  # Desired S3 key
 
-        if not local:
-            # Dump table and upload to S3
-            self.dump_and_upload(table_name, s3_key)
-        else:
+        if local or self.db_handler.db_config.database == "test_db":
             data = self.dump_table_to_json(table_name)
             self.save_json_to_file(data, file_path=f"data/{table_name}.json")
+        else:
+            # Dump table and upload to S3
+            self.logger.info(self.db_handler.db_config.database)
+            self.dump_and_upload(table_name, s3_key)
 
     def dump_table_to_json(self, table_name: str) -> List[Dict]:
         """

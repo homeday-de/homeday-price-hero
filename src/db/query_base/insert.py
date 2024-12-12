@@ -42,6 +42,7 @@ SQL_REPORT_BATCHES = """
     """
 
 SQL_REPORT_HEADERS = """
+    -- Update existing rows with the same report_batch_id to set active = FALSE
     WITH distinct_prices AS (
         -- Extract distinct price_date and map to year-quarter format
         SELECT DISTINCT 
@@ -74,8 +75,19 @@ SQL_REPORT_HEADERS = """
                 ('zip_codes', 'house'),
                 ('cities', 'apartment'),
                 ('cities', 'house')
-        ) AS params(name, property_type)
+            ) AS params(name, property_type)
+    ),
+    update_existing AS (
+        -- Update existing rows with the same report_batch_id to set active = FALSE
+        UPDATE report_headers
+        SET active = FALSE
+        WHERE report_batch_id IN (
+            SELECT DISTINCT report_batch_id
+            FROM expanded_rows
+        ) AND active = TRUE
+        RETURNING report_batch_id
     )
+    -- Insert new rows
     INSERT INTO report_headers (
         name, property_type, marketing_type, completed_at, created_at, 
         updated_at, city, country, date, active, source, report_batch_id
@@ -94,7 +106,7 @@ SQL_REPORT_HEADERS = """
         1 AS source, -- Default value, adjust as needed
         er.report_batch_id
     FROM expanded_rows er
-    ON CONFLICT (id) DO NOTHING
+    ON CONFLICT (id) DO NOTHING;
 """
 
 SQL_LOCATION_PRICES = """
@@ -159,6 +171,7 @@ SQL_LOCATION_PRICES = """
         FROM prices_all pa
         JOIN report_headers rh
         ON pa.price_date::date = rh.date
+        WHERE rh.active = TRUE
     ),
     geo_data AS (
         -- Map geo_cache information for zip_code and city_id

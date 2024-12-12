@@ -112,7 +112,7 @@ async def run_etl_process(
     configure_secrets(secret_manager, action="get")
     from config import settings
 
-    if process == "etl":
+    if process == "fetch".casefold():
         click.echo("Run etl to fetch price from aviv and transform to hd prices schema")
         if not price_year or not validate_year(None, None, price_year):
             price_year = click.prompt('Enter a valid year (e.g., 2024)')
@@ -126,36 +126,36 @@ async def run_etl_process(
         price_date = get_first_day_of_quarter(price_year + price_quarter)
         await extract_prices(config=settings, price_date=price_date, is_test=is_test)
 
+        backup_pg_to_filesystem(config=settings, is_test=is_test, save_local=save_local)
+        configure_secrets(secret_manager, action="update")
+    elif process == "sync".casefold():
         if should_transform:
             transform_prices(config=settings, is_test=is_test)
             transformed_prices_health_check(config=settings, is_test=is_test)
-
-        backup_pg_to_filesystem(config=settings, is_test=is_test, save_local=save_local)
-        configure_secrets(secret_manager, action="update")
-    else:
-        click.echo("Upload transformed tables to hd prices db")
-        local_conf = settings.db.dev if not is_test else settings.db.test
-        rds_conf = settings.aws.rds_config.prices_staging if not is_production \
-            else settings.aws.rds_config.prices_production
-        price_updater = PricesUpdater(local_conf, rds_conf)
-        tables = [
-            "report_batches"
-            "report_headers", 
-            "location_prices"
-        ]
-        price_updater.run(tables)
+        if not is_test:
+            click.echo("Upload transformed tables to hd prices db")
+            local_conf = settings.db.dev
+            rds_conf = settings.aws.rds_config.prices_staging if not is_production \
+                else settings.aws.rds_config.prices_production
+            price_updater = PricesUpdater(local_conf, rds_conf)
+            tables = [
+                "report_batches"
+                "report_headers", 
+                "location_prices"
+            ]
+            price_updater.run(tables)
 
 
 @click.command()
 @click.option(
     "--process",
     prompt="Which process is going to continue?",
-    type=click.Choice(["etl", "sync"]), 
+    type=click.Choice(["fetch", "sync"]), 
     required=True,
     help="""
     Specify the process to execute.
-    etl: Fetch geo info and prices from AVIV API then perform transformation, 
-    sync: Update transformed data to HD Prices staging/production DB
+    fetch: Fetch and save geo info and prices from AVIV API
+    sync: Perform transformation and update transformed data to HD Prices staging/production DB
     """
 )
 @click.option('--price_year', help='Year for AVIV price API query.')
