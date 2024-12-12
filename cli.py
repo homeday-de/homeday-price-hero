@@ -126,24 +126,24 @@ async def run_etl_process(
         price_date = get_first_day_of_quarter(price_year + price_quarter)
         await extract_prices(config=settings, price_date=price_date, is_test=is_test)
 
+        backup_pg_to_filesystem(config=settings, is_test=is_test, save_local=save_local)
+        configure_secrets(secret_manager, action="update")
+    elif process == "sync".casefold():
         if should_transform:
             transform_prices(config=settings, is_test=is_test)
             transformed_prices_health_check(config=settings, is_test=is_test)
-
-        backup_pg_to_filesystem(config=settings, is_test=is_test, save_local=save_local)
-        configure_secrets(secret_manager, action="update")
-    else:
-        click.echo("Upload transformed tables to hd prices db")
-        local_conf = settings.db.dev if not is_test else settings.db.test
-        rds_conf = settings.aws.rds_config.prices_staging if not is_production \
-            else settings.aws.rds_config.prices_production
-        price_updater = PricesUpdater(local_conf, rds_conf)
-        tables = [
-            "report_batches"
-            "report_headers", 
-            "location_prices"
-        ]
-        price_updater.run(tables)
+        if not is_test:
+            click.echo("Upload transformed tables to hd prices db")
+            local_conf = settings.db.dev
+            rds_conf = settings.aws.rds_config.prices_staging if not is_production \
+                else settings.aws.rds_config.prices_production
+            price_updater = PricesUpdater(local_conf, rds_conf)
+            tables = [
+                "report_batches"
+                "report_headers", 
+                "location_prices"
+            ]
+            price_updater.run(tables)
 
 
 @click.command()
