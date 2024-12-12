@@ -112,7 +112,7 @@ async def run_etl_process(
     configure_secrets(secret_manager, action="get")
     from config import settings
 
-    if process == "etl":
+    if process == "fetch".casefold():
         click.echo("Run etl to fetch price from aviv and transform to hd prices schema")
         if not price_year or not validate_year(None, None, price_year):
             price_year = click.prompt('Enter a valid year (e.g., 2024)')
@@ -150,12 +150,12 @@ async def run_etl_process(
 @click.option(
     "--process",
     prompt="Which process is going to continue?",
-    type=click.Choice(["etl", "sync"]), 
+    type=click.Choice(["fetch", "sync"]), 
     required=True,
     help="""
     Specify the process to execute.
-    etl: Fetch geo info and prices from AVIV API then perform transformation, 
-    sync: Update transformed data to HD Prices staging/production DB
+    fetch: Fetch and save geo info and prices from AVIV API
+    sync: Perform transformation and update transformed data to HD Prices staging/production DB
     """
 )
 @click.option('--price_year', help='Year for AVIV price API query.')
