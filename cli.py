@@ -1,6 +1,7 @@
 import asyncio
 import asyncclick as click
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from src.db import DatabaseHandler
 from src.pipelines import APIToPostgres, PostgresToS3, AVIVRawToHDPrices, TransformedPricesHealthCheck
 from src.lib.aws import S3Connector, SecretManager
@@ -64,29 +65,40 @@ class PricesUpdater:
     def update_table(self, table_name):
         """Update data from a local table to an RDS table."""
         print(f"Processing table: {table_name}")
+
+        # Fetch column names
         column_names = self.local_handler.fetch_column_names(table_name)
-        total_rows = self.local_handler.count_rows(table_name)
+
+        # Calculate total rows in the table
+        query = f"SELECT COUNT(*) FROM {table_name};"
+        with self.local_handler.conn.cursor() as cur:
+            cur.execute(query)
+            total_rows = cur.fetchone()[0]
+
         print(f"Total rows in {table_name}: {total_rows}")
 
+        # Fetch and append data in chunks
         offset = 0
         while offset < total_rows:
             chunk = self.local_handler.fetch_chunked_data(table_name, offset, self.chunk_size)
             self.rds_handler.append_data(table_name, chunk, column_names)
-
             offset += len(chunk)
+
             progress = (offset / total_rows) * 100
             print(f"Progress for {table_name}: {progress:.2f}%")
 
         print(f"Data from {table_name} appended successfully!")
 
     def run(self, tables):
-        """Run the update process for multiple tables."""
+        """Run the update process for multiple tables asynchronously."""
         try:
             self.local_handler.connect()
             self.rds_handler.connect()
 
-            for table in tables:
-                self.update_table(table)
+            with ThreadPoolExecutor() as executor:
+                futures = [executor.submit(self.update_table, table) for table in tables]
+                for future in futures:
+                    future.result()
 
         except Exception as e:
             print(f"An error occurred: {e}")
