@@ -90,7 +90,7 @@ Before start, ensure **AVIV VPN (Cloudflare)** is enabled.
    ```bash
    python detect_config.py --get
    ```
-3. After devlopment and run tests:
+3. After development and run tests:
    ```bash
    pytest tests/
    ```
