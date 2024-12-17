@@ -32,7 +32,7 @@
    ```
 2. Enable execute to the script
    ```bash
-   chmod +x price_hero.sh
+   chmod +x price_hero
    ```
 3. Start the services:
    ```bash
